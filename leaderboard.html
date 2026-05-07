@@ -290,7 +290,8 @@ let liveTimeout = null
 let ws = null
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}`)
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  ws = new WebSocket(`${proto}//${location.host}`)
 
   ws.onopen = () => {
     connDot.className   = 'ok'

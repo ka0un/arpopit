@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AR Bubble Pop</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#0a0a12; color:#fff; font-family:'Inter',Arial,sans-serif; height:100vh; overflow:hidden; }
+
+    /* ── Mobile redirect ──────────────────────────── */
+    #mobile-screen { display:none; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:16px; }
+    .spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,.15); border-top-color:#6bcb77; border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── Desktop layout ───────────────────────────── */
+    #desktop-screen { display:none; height:100vh; grid-template-columns:1fr 400px; }
+
+    /* ── Left panel ───────────────────────────────── */
+    .left-panel {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:28px; padding:40px; border-right:1px solid rgba(255,255,255,.07);
+      position:relative;
+    }
+
+    .logo h1 {
+      font-size:36px; font-weight:900; text-align:center; letter-spacing:-1px;
+      background:linear-gradient(135deg,#6bcb77,#4d96ff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .logo p { font-size:14px; opacity:.4; text-align:center; margin-top:4px; }
+
+    /* QR view */
+    #qr-view { display:flex; flex-direction:column; align-items:center; gap:20px; }
+    #qr-view.hide { display:none; }
+    .qr-frame { background:#fff; padding:16px; border-radius:20px; box-shadow:0 24px 64px rgba(0,0,0,.6); }
+    #qr-container canvas, #qr-container img { display:block; border-radius:4px; }
+    .qr-label { font-size:14px; opacity:.5; }
+    .url-pill {
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+      border-radius:12px; padding:10px 20px; font-size:13px; color:#6bcb77;
+      word-break:break-all; text-align:center; max-width:360px;
+    }
+    .url-pill span { display:block; font-size:10px; opacity:.4; text-transform:uppercase; letter-spacing:1px; color:#fff; margin-bottom:4px; }
+
+    /* Joined view — waiting for login */
+    #joined-view { display:none; flex-direction:column; align-items:center; gap:20px; }
+    #joined-view.show { display:flex; }
+    .joined-card {
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+      border-radius:20px; padding:32px 40px; text-align:center; max-width:360px;
+    }
+    .joined-card .icon { font-size:56px; margin-bottom:12px; }
+    .joined-card h2 { font-size:22px; font-weight:800; margin-bottom:8px; }
+    .joined-card p { font-size:14px; opacity:.5; }
+    .spinner-small { width:28px; height:28px; border:3px solid rgba(255,255,255,.15); border-top-color:#6bcb77; border-radius:50%; animation:spin .8s linear infinite; margin:16px auto 0; }
+
+    /* Playing view — target image */
+    #playing-view { display:none; flex-direction:column; align-items:center; gap:20px; }
+    #playing-view.show { display:flex; }
+    .player-badge {
+      display:flex; align-items:center; gap:10px;
+      background:rgba(109,203,119,.12); border:1px solid rgba(109,203,119,.25);
+      border-radius:40px; padding:8px 20px; font-weight:700; font-size:15px;
+    }
+    .player-badge .dot { width:8px; height:8px; border-radius:50%; background:#6bcb77; animation:pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+    .target-frame { border-radius:20px; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,.6); max-width:340px; }
+    .target-frame img { width:100%; height:100%; object-fit:contain; display:block; }
+    .target-label { font-size:14px; opacity:.5; }
+    #mini-qr-wrap { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px 16px; }
+    #mini-qr-container canvas, #mini-qr-container img { display:block; border-radius:4px; background:#fff; padding:3px; }
+    .mini-qr-text { font-size:12px; opacity:.5; }
+    .mini-qr-text strong { display:block; font-size:13px; opacity:.9; color:#fff; margin-bottom:2px; }
+
+    /* ── Right panel ───────────────────────────────── */
+    .right-panel { display:flex; flex-direction:column; overflow:hidden; }
+    .board-header { padding:24px 32px 18px; border-bottom:1px solid rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .board-header h2 { font-size:18px; font-weight:800; opacity:.8; }
+
+    #live-badge { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:40px; padding:7px 16px; font-size:12px; font-weight:700; opacity:0; transition:opacity .4s; }
+    #live-badge.show { opacity:1; }
+    #live-badge .dot { width:8px; height:8px; border-radius:50%; background:#ff6b6b; animation:pulse 1.4s ease-in-out infinite; }
+    #live-name { color:#ffd93d; }
+    #live-pts  { color:#6bcb77; }
+
+    #board-wrap { flex:1; padding:16px 32px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+
+    .entry { display:grid; grid-template-columns:56px 1fr auto; align-items:center; gap:12px; padding:12px 18px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); animation:slide-in .35s ease both; }
+    @keyframes slide-in { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:translateX(0)} }
+    .entry.flash { animation:flash-in .5s ease; }
+    @keyframes flash-in { 0%,100%{background:rgba(255,255,255,.04)} 50%{background:rgba(109,203,119,.18)} }
+    .entry.rank-1 { background:rgba(255,215,0,.08);  border-color:rgba(255,215,0,.2);  }
+    .entry.rank-2 { background:rgba(192,192,192,.06); border-color:rgba(192,192,192,.15); }
+    .entry.rank-3 { background:rgba(205,127,50,.06);  border-color:rgba(205,127,50,.15); }
+    .rank-badge { font-size:20px; font-weight:900; text-align:center; }
+    .rank-1 .rank-badge { color:#ffd700; }
+    .rank-2 .rank-badge { color:#c0c0c0; }
+    .rank-3 .rank-badge { color:#cd7f32; }
+    .entry-name  { font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .entry-score { font-size:20px; font-weight:900; color:#6bcb77; }
+    .rank-1 .entry-score { color:#ffd700; }
+    .empty-state { text-align:center; opacity:.3; font-size:15px; margin-top:40px; }
+
+    .board-footer { padding:12px 32px; border-top:1px solid rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; font-size:11px; }
+    .legend { display:flex; gap:12px; }
+    .legend-item { display:flex; align-items:center; gap:5px; opacity:.4; }
+    .legend-dot { width:9px; height:9px; border-radius:50%; }
+    #conn-status { display:flex; align-items:center; gap:6px; opacity:.3; }
+    #conn-dot { width:7px; height:7px; border-radius:50%; background:#888; transition:background .4s; }
+    #conn-dot.ok { background:#6bcb77; }
+    #conn-dot.err { background:#ff6b6b; }
+  </style>
+</head>
+<body>
+
+<div id="mobile-screen"><div class="spinner"></div></div>
+
+<div id="desktop-screen">
+  <div class="left-panel">
+    <div class="logo">
+      <h1>AR Bubble Pop</h1>
+      <p>Scan the QR code on your phone to play</p>
+    </div>
+
+    <!-- State 1: show QR -->
+    <div id="qr-view">
+      <div class="qr-frame"><div id="qr-container"></div></div>
+      <p class="qr-label">Scan with your phone camera</p>
+      <div class="url-pill"><span>or open this URL</span><span id="phone-url-text"></span></div>
+    </div>
+
+    <!-- State 2: phone joined, waiting for auth -->
+    <div id="joined-view">
+      <div class="joined-card">
+        <div class="icon">📱</div>
+        <h2>Someone joined!</h2>
+        <p>Waiting for them to log in on their phone…</p>
+        <div class="spinner-small"></div>
+      </div>
+    </div>
+
+    <!-- State 3: authenticated, playing -->
+    <div id="playing-view">
+      <div class="player-badge"><div class="dot"></div><span id="playing-name">Player</span> is playing</div>
+      <div class="target-frame"><img id="target-img" src="" alt="Target"></div>
+      <p class="target-label">Point your phone at this image</p>
+      <div id="mini-qr-wrap">
+        <div id="mini-qr-container"></div>
+        <div class="mini-qr-text"><strong>Others can join too</strong>Scan to play on your phone</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="board-header">
+      <h2>Leaderboard</h2>
+      <div id="live-badge"><div class="dot"></div><span id="live-name">—</span>&nbsp;·&nbsp;<span id="live-pts">0</span></div>
+    </div>
+    <div id="board-wrap"><div class="empty-state">No scores yet — be the first!</div></div>
+    <div class="board-footer">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#bbbbbb"></div>+1</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4d96ff"></div>+2</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6bcb77"></div>+3</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd93d"></div>+5</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>+10</div>
+      </div>
+      <div id="conn-status"><div id="conn-dot"></div><span id="conn-label">Connecting…</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const STORAGE_KEY = 'ar-bubble-leaderboard-v1'
+const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+if (isMobile) {
+  document.getElementById('mobile-screen').style.display = 'flex'
+  location.replace('/phone.html')
+} else {
+  document.getElementById('desktop-screen').style.display = 'grid'
+  ;(async () => {
+
+  // ── Config + IDs ───────────────────────────────────────────────
+  const cfg = await fetch('/config.json').then(r => r.json()).catch(() => ({}))
+  const baseUrl = (cfg.publicUrl || location.origin).replace(/\/$/, '')
+
+  // Stable desktopId per browser tab (regenerates on new tab)
+  let desktopId = sessionStorage.getItem('desktopId')
+  if (!desktopId) { desktopId = crypto.randomUUID(); sessionStorage.setItem('desktopId', desktopId) }
+
+  const phoneUrl     = `${baseUrl}/phone.html?desk=${desktopId}`
+  const targetImgUrl = cfg.targetImageUrl || ''
+
+  document.getElementById('phone-url-text').textContent = phoneUrl
+  if (targetImgUrl) document.getElementById('target-img').src = targetImgUrl
+
+  // ── QR codes ───────────────────────────────────────────────────
+  new QRCode(document.getElementById('qr-container'), {
+    text: phoneUrl, width: 260, height: 260,
+    colorDark: '#0a0a12', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M,
+  })
+  new QRCode(document.getElementById('mini-qr-container'), {
+    text: phoneUrl, width: 72, height: 72,
+    colorDark: '#0a0a12', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L,
+  })
+
+  // ── UI state machine ────────────────────────────────────────────
+  const qrView     = document.getElementById('qr-view')
+  const joinedView = document.getElementById('joined-view')
+  const playingView = document.getElementById('playing-view')
+  const playingName = document.getElementById('playing-name')
+  let resetTimer = null
+
+  function setState(state, data = {}) {
+    qrView.classList.remove('hide')
+    joinedView.classList.remove('show')
+    playingView.classList.remove('show')
+    clearTimeout(resetTimer)
+
+    if (state === 'joined') {
+      qrView.classList.add('hide')
+      joinedView.classList.add('show')
+    }
+    if (state === 'playing') {
+      qrView.classList.add('hide')
+      joinedView.classList.remove('show')
+      playingView.classList.add('show')
+      if (data.name) playingName.textContent = data.name
+    }
+    if (state === 'idle') {
+      // Back to QR after a delay when no activity
+    }
+  }
+
+  // ── Leaderboard ─────────────────────────────────────────────────
+  const wrap      = document.getElementById('board-wrap')
+  const liveBadge = document.getElementById('live-badge')
+  const liveName  = document.getElementById('live-name')
+  const livePts   = document.getElementById('live-pts')
+  const connDot   = document.getElementById('conn-dot')
+  const connLabel = document.getElementById('conn-label')
+  let entries = [], prevIds = [], liveTimer = null
+
+  try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch {}
+  if (entries.length) renderBoard(entries, false)
+
+  // ── WebSocket ────────────────────────────────────────────────────
+  let ws = null
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    ws = new WebSocket(`${proto}//${location.host}`)
+
+    ws.onopen = () => {
+      connDot.className = 'ok'; connLabel.textContent = 'Connected'
+      ws.send(JSON.stringify({ type: 'desk_connect', desktopId }))
+    }
+    ws.onclose = () => { connDot.className = 'err'; connLabel.textContent = 'Reconnecting…'; setTimeout(connect, 2500) }
+
+    ws.onmessage = (e) => {
+      let msg; try { msg = JSON.parse(e.data) } catch { return }
+
+      if (msg.type === 'leaderboard') {
+        entries = msg.entries || []
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)) } catch {}
+        renderBoard(entries, true)
+      }
+
+      if (msg.type === 'player_joined') {
+        setState('joined')
+      }
+
+      if (msg.type === 'player_named') {
+        setState('playing', { name: msg.name })
+      }
+
+      if (msg.type === 'live_score') {
+        showLive(msg.name, msg.score)
+        // Auto-reset to QR 8s after last activity
+        clearTimeout(resetTimer)
+        resetTimer = setTimeout(() => setState('idle'), 8000)
+      }
+    }
+  }
+  connect()
+
+  // ── Render helpers ───────────────────────────────────────────────
+  const MEDALS = ['🥇','🥈','🥉']
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+  function renderBoard(list, animate) {
+    if (!list.length) { wrap.innerHTML = '<div class="empty-state">No scores yet — be the first!</div>'; prevIds = []; return }
+    wrap.innerHTML = list.slice(0, 10).map((e, i) => {
+      const isNew = animate && !prevIds.includes(e.id)
+      return `<div class="entry rank-${i+1} ${isNew ? 'flash' : ''}">
+        <div class="rank-badge">${i < 3 ? MEDALS[i] : '#'+(i+1)}</div>
+        <div class="entry-name">${esc(e.name)}</div>
+        <div class="entry-score">${e.score.toLocaleString()}</div>
+      </div>`
+    }).join('')
+    prevIds = list.map(e => e.id)
+  }
+
+  function showLive(name, score) {
+    liveName.textContent = esc(name); livePts.textContent = score + ' pts'
+    liveBadge.classList.add('show')
+    clearTimeout(liveTimer)
+    liveTimer = setTimeout(() => liveBadge.classList.remove('show'), 4000)
+  }
+
+  })()
+}
+</script>
+</body>
+</html>

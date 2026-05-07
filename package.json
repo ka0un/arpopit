@@ -6,7 +6,10 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "^4.18.2",
+    "mind-ar": "^1.2.5",
+    "three": "^0.160.0",
     "ws": "^8.14.2"
   }
 }

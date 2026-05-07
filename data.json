@@ -1,0 +1,22 @@
+{
+  "users": {
+    "kasun": {
+      "username": "kasun",
+      "passwordHash": "$2b$10$mrGNwWzl7FwNwNZtBr1IGuL2tkpCzrqM8WNm20e0Cu6WP5l8QBQyy"
+    }
+  },
+  "leaderboard": [
+    {
+      "id": 1778151626186.2036,
+      "username": "kasun",
+      "score": 134,
+      "ts": 1778151626186
+    },
+    {
+      "id": 1778151563381.2576,
+      "username": "kasun",
+      "score": 114,
+      "ts": 1778151563382
+    }
+  ]
+}

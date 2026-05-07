@@ -1,521 +1,586 @@
 <!DOCTYPE html>
-<!--
-  AR Bubble Pop — Phone Game
-  ──────────────────────────
-  SETUP: You need a compiled target.mind file in this directory.
-  1. Go to https://hiukim.github.io/mind-ar-js-doc/tools/compile
-  2. Upload any flat image (printed card, poster, magazine cover, etc.)
-  3. Download the .mind file → save as  target.mind  here
-  4. Print / display that same image as the physical target
-  5. Open this page on your phone and point it at the image
--->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>AR Bubble Pop</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; font-family: -apple-system, Arial, sans-serif; touch-action: none; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { background:#0a0a12; color:#fff; font-family:'Inter',Arial,sans-serif; overflow:hidden; touch-action:none; }
 
-    #container { width: 100vw; height: 100vh; position: relative; }
-
-    /* ── HUD ─────────────────────────────────── */
-    #hud {
-      position: fixed; top: 0; left: 0; right: 0;
-      padding: 14px 16px;
-      display: flex; justify-content: space-between; align-items: flex-start;
-      pointer-events: none; z-index: 100;
+    /* ── Name screen ──────────────────────────────── */
+    #name-screen {
+      position:fixed; inset:0; z-index:600; background:#0a0a12;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:32px 24px; gap:28px;
     }
-    .hud-box {
-      background: rgba(0,0,0,.65);
-      backdrop-filter: blur(6px);
-      color: #fff;
-      padding: 10px 18px;
-      border-radius: 14px;
-      text-align: center;
-      min-width: 90px;
+    #name-screen.hidden { display:none; }
+    .ns-logo { text-align:center; }
+    .ns-logo h1 {
+      font-size:32px; font-weight:900; letter-spacing:-1px;
+      background:linear-gradient(135deg,#6bcb77,#4d96ff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
     }
-    .hud-label { font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: 1px; }
-    .hud-value { font-size: 38px; font-weight: 800; line-height: 1.1; }
-
-    #timer-bar {
-      position: fixed; bottom: 0; left: 0;
-      height: 5px;
-      background: #6bcb77;
-      width: 100%;
-      transition: width 1s linear, background-color 0.5s;
-      z-index: 100;
+    .ns-logo p { font-size:14px; opacity:.4; margin-top:6px; }
+    .ns-card { width:100%; max-width:320px; display:flex; flex-direction:column; gap:16px; }
+    .ns-label { font-size:13px; font-weight:600; opacity:.5; text-transform:uppercase; letter-spacing:.8px; }
+    #player-name-input {
+      width:100%; padding:16px 20px; border-radius:14px;
+      background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.12);
+      color:#fff; font-family:inherit; font-size:22px; font-weight:700;
+      outline:none; text-align:center; transition:border-color .2s;
     }
+    #player-name-input:focus { border-color:rgba(109,203,119,.6); }
+    #player-name-input::placeholder { color:rgba(255,255,255,.2); font-weight:400; font-size:18px; }
+    #play-btn {
+      padding:18px; border:none; border-radius:14px; font-family:inherit;
+      font-size:20px; font-weight:800; cursor:pointer; letter-spacing:.3px;
+      background:linear-gradient(135deg,#6bcb77,#4d96ff); color:#fff;
+      transition:transform .15s, opacity .15s;
+    }
+    #play-btn:active { transform:scale(.97); opacity:.9; }
+    #ns-error { font-size:13px; color:#ff6b6b; text-align:center; display:none; }
+    #ns-error.show { display:block; }
 
-    /* ── Scan prompt ─────────────────────────── */
+    /* ── Status overlay ───────────────────────────── */
+    #status-overlay {
+      position:fixed; inset:0; background:#0a0a12; z-index:500;
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      gap:16px; padding:32px; text-align:center;
+    }
+    #status-overlay.show { display:flex; }
+    #status-overlay.error .spinner { border-top-color:#ff6b6b; animation:none; opacity:.4; }
+    #status-overlay.error #s-title { color:#ff6b6b; }
+    .spinner { width:48px; height:48px; border:3px solid rgba(255,255,255,.12); border-top-color:#6bcb77; border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #s-title { font-size:20px; font-weight:700; }
+    #s-msg   { font-size:14px; opacity:.5; max-width:260px; line-height:1.5; }
+
+    /* ── AR scene ─────────────────────────────────── */
+    #container { width:100vw; height:100vh; }
+
+    /* ── HUD ──────────────────────────────────────── */
+    #hud { position:fixed; top:0; left:0; right:0; padding:14px 16px; display:flex; justify-content:space-between; pointer-events:none; z-index:100; }
+    .hud-box { background:rgba(0,0,0,.65); backdrop-filter:blur(6px); color:#fff; padding:10px 18px; border-radius:14px; text-align:center; min-width:90px; }
+    .hud-label { font-size:11px; opacity:.6; text-transform:uppercase; letter-spacing:1px; }
+    .hud-value { font-size:38px; font-weight:900; line-height:1.1; }
+    #timer-bar { position:fixed; bottom:0; left:0; height:5px; background:#6bcb77; width:100%; transition:width 1s linear, background-color .5s; z-index:100; }
+
+    /* ── Scan prompt ──────────────────────────────── */
     #scan-prompt {
-      position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,.7);
-      backdrop-filter: blur(6px);
-      color: #fff; padding: 14px 28px; border-radius: 28px;
-      font-size: 15px; white-space: nowrap; z-index: 100;
-      transition: opacity .4s;
+      position:fixed; bottom:36px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,.75); backdrop-filter:blur(8px);
+      color:#fff; padding:14px 24px; border-radius:28px; font-size:15px;
+      white-space:nowrap; z-index:100; display:none; align-items:center; gap:10px;
     }
+    #target-peek { width:38px; height:38px; border-radius:8px; object-fit:contain; background:#fff; padding:2px; cursor:pointer; pointer-events:all; }
+    #target-hint {
+      position:fixed; bottom:0; left:0; right:0; background:rgba(0,0,0,.9); backdrop-filter:blur(10px);
+      padding:18px 24px 38px; display:flex; align-items:center; gap:16px; z-index:400;
+      transform:translateY(100%); transition:transform .35s cubic-bezier(.34,1.2,.64,1);
+    }
+    #target-hint.show { transform:translateY(0); }
+    #hint-img { width:80px; height:80px; object-fit:contain; border-radius:10px; background:#fff; padding:4px; flex-shrink:0; }
+    .ht { }
+    .ht h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
+    .ht p  { font-size:13px; opacity:.5; line-height:1.4; }
+    #hint-close { margin-left:auto; background:none; border:none; color:rgba(255,255,255,.4); font-size:22px; cursor:pointer; flex-shrink:0; padding:0 0 0 12px; }
 
-    /* ── Countdown overlay ───────────────────── */
-    #countdown-overlay {
-      position: fixed; inset: 0;
-      display: none;
-      align-items: center; justify-content: center;
-      background: rgba(0,0,0,.45);
-      color: #fff;
-      font-size: 130px; font-weight: 900;
-      z-index: 200;
-      text-shadow: 0 4px 24px rgba(0,0,0,.6);
-    }
+    /* ── Countdown ────────────────────────────────── */
+    #countdown-overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); color:#fff; font-size:130px; font-weight:900; z-index:200; }
 
-    /* ── Game over overlay ───────────────────── */
-    #game-over-overlay {
-      position: fixed; inset: 0;
-      display: none;
-      flex-direction: column;
-      align-items: center; justify-content: center;
-      background: rgba(0,0,0,.82);
-      backdrop-filter: blur(8px);
-      color: #fff; gap: 20px;
-      z-index: 300; padding: 24px;
-    }
-    #game-over-overlay h2 { font-size: 40px; font-weight: 800; }
-    #final-score { font-size: 88px; font-weight: 900; color: #ffd93d; line-height: 1; }
-    #name-input {
-      font-size: 22px; padding: 14px 24px;
-      border: 2px solid rgba(255,255,255,.3); border-radius: 14px;
-      background: rgba(255,255,255,.1); color: #fff;
-      width: min(300px, 85vw); text-align: center; outline: none;
-    }
-    #name-input::placeholder { color: rgba(255,255,255,.45); }
-    #submit-btn, #play-again-btn {
-      font-size: 19px; font-weight: 700;
-      padding: 16px 44px;
-      border: none; border-radius: 14px;
-      cursor: pointer; pointer-events: all;
-    }
-    #submit-btn { background: #6bcb77; color: #fff; }
-    #play-again-btn { background: #4d96ff; color: #fff; }
-    .submitted-msg { font-size: 18px; opacity: .75; text-align: center; }
+    /* ── Game over ────────────────────────────────── */
+    #gameover { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,.85); backdrop-filter:blur(8px); color:#fff; gap:18px; z-index:300; padding:24px; }
+    #gameover h2 { font-size:36px; font-weight:900; }
+    #go-score { font-size:90px; font-weight:900; color:#ffd93d; line-height:1; }
+    #go-rank  { font-size:18px; opacity:.6; min-height:26px; }
+    .go-btn { font-size:17px; font-weight:700; padding:14px 40px; border:none; border-radius:12px; cursor:pointer; pointer-events:all; }
+    #again-btn { background:#4d96ff; color:#fff; }
 
-    /* ── Floating score pop ──────────────────── */
-    .float-score {
-      position: fixed;
-      font-size: 30px; font-weight: 900;
-      pointer-events: none; z-index: 150;
-      text-shadow: 0 2px 8px rgba(0,0,0,.5);
-      transform: translateX(-50%);
-      animation: float-up .85s ease-out forwards;
-    }
-    @keyframes float-up {
-      from { opacity: 1; transform: translateX(-50%) translateY(0); }
-      to   { opacity: 0; transform: translateX(-50%) translateY(-70px); }
-    }
+    /* ── Float label ──────────────────────────────── */
+    .float-label { position:fixed; font-size:32px; font-weight:900; pointer-events:none; z-index:150; transform:translateX(-50%); animation:float-up .9s ease-out forwards; }
+    @keyframes float-up { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(-80px)} }
 
-    /* ── WS indicator ────────────────────────── */
-    #ws-dot {
-      position: fixed; bottom: 12px; right: 12px;
-      width: 10px; height: 10px; border-radius: 50%;
-      background: #888; z-index: 100;
-      transition: background .4s;
-    }
-    #ws-dot.connected { background: #6bcb77; }
-    #ws-dot.error     { background: #ff6b6b; }
+    /* ── WS dot ───────────────────────────────────── */
+    #ws-dot { position:fixed; bottom:12px; right:12px; width:10px; height:10px; border-radius:50%; background:#888; z-index:100; transition:background .4s; }
+    #ws-dot.ok  { background:#6bcb77; }
+    #ws-dot.err { background:#ff6b6b; }
   </style>
 </head>
 <body>
 
+<!-- Name input -->
+<div id="name-screen">
+  <div class="ns-logo">
+    <h1>AR Bubble Pop</h1>
+    <p>Quick-push bear edition · 30 seconds</p>
+  </div>
+  <div class="ns-card">
+    <div class="ns-label">What's your name?</div>
+    <input id="player-name-input" type="text" placeholder="Enter your name" maxlength="20" autocorrect="off" autocapitalize="words">
+    <div id="ns-error"></div>
+    <button id="play-btn">Let's Play →</button>
+  </div>
+</div>
+
+<!-- Status -->
+<div id="status-overlay">
+  <div class="spinner"></div>
+  <div id="s-title">Starting up…</div>
+  <div id="s-msg">Loading AR engine</div>
+</div>
+
+<!-- AR -->
 <div id="container"></div>
-
 <div id="hud">
-  <div class="hud-box">
-    <div class="hud-label">Score</div>
-    <div class="hud-value" id="score-display">0</div>
-  </div>
-  <div class="hud-box">
-    <div class="hud-label">Time</div>
-    <div class="hud-value" id="timer-display">30</div>
-  </div>
+  <div class="hud-box"><div class="hud-label">Score</div><div class="hud-value" id="score-val">0</div></div>
+  <div class="hud-box"><div class="hud-label">Time</div><div class="hud-value"  id="timer-val">30</div></div>
 </div>
-
 <div id="timer-bar"></div>
-<div id="scan-prompt">📷 Point camera at target image</div>
-<div id="countdown-overlay"></div>
-
-<div id="game-over-overlay">
-  <h2>Time's Up!</h2>
-  <div id="final-score">0</div>
-  <input id="name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
-  <button id="submit-btn">Submit Score</button>
+<div id="scan-prompt">📷 Point at this image <img id="target-peek" src="" alt="target"></div>
+<div id="target-hint">
+  <img id="hint-img" src="" alt="target">
+  <div class="ht"><h3>Point your camera at this image</h3><p>Hold steady — the bear toy will appear!</p></div>
+  <button id="hint-close">✕</button>
 </div>
-
-<div id="ws-dot" title="Server connection"></div>
+<div id="countdown-overlay"></div>
+<div id="gameover">
+  <h2>Time's Up!</h2>
+  <div id="go-score">0</div>
+  <div id="go-rank"></div>
+  <button class="go-btn" id="again-btn">Play Again</button>
+</div>
+<div id="ws-dot"></div>
 
 <script type="importmap">
 {
   "imports": {
-    "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
   }
 }
 </script>
-
 <script type="module">
 import * as THREE from 'three'
-import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
+import { MindARThree } from '/node_modules/mind-ar/dist/mindar-image-three.prod.js'
 
-// ── Constants ────────────────────────────────────────────────────────────────
-const GAME_DURATION = 30   // seconds
-const ROWS = 4
-const COLS = 5
-const BUBBLE_RADIUS  = 0.055
-const BUBBLE_SPACING = 0.14
-const Z_OFFSET       = 0.05   // float above target plane
+// ── IDs ───────────────────────────────────────────────────────────────────────
+const desktopId = new URLSearchParams(location.search).get('desk') || ''
+let playerId = sessionStorage.getItem('playerId')
+if (!playerId) { playerId = crypto.randomUUID(); sessionStorage.setItem('playerId', playerId) }
 
-const BUBBLE_TYPES = [
-  { color: 0xbbbbbb, cssColor: '#bbbbbb', label: 'grey',   points: 1,  weight: 5 },
-  { color: 0x4d96ff, cssColor: '#4d96ff', label: 'blue',   points: 2,  weight: 4 },
-  { color: 0x6bcb77, cssColor: '#6bcb77', label: 'green',  points: 3,  weight: 3 },
-  { color: 0xffd93d, cssColor: '#ffd93d', label: 'yellow', points: 5,  weight: 2 },
-  { color: 0xff6b6b, cssColor: '#ff6b6b', label: 'red',    points: 10, weight: 1 },
-]
-const TOTAL_WEIGHT = BUBBLE_TYPES.reduce((s, t) => s + t.weight, 0)
+// ── HTTPS guard ───────────────────────────────────────────────────────────────
+if (location.protocol !== 'https:' && !['localhost','127.0.0.1'].includes(location.hostname)) {
+  document.getElementById('name-screen').innerHTML = `<div style="text-align:center;padding:32px;max-width:300px"><div style="font-size:48px;margin-bottom:16px">🔒</div><h2 style="font-size:20px;margin-bottom:10px">HTTPS Required</h2><p style="opacity:.5;font-size:14px;line-height:1.6">Open via the ngrok HTTPS URL, not the local IP.</p></div>`
+  throw new Error('Not HTTPS')
+}
 
-// ── DOM refs ─────────────────────────────────────────────────────────────────
-const scoreDisplay    = document.getElementById('score-display')
-const timerDisplay    = document.getElementById('timer-display')
-const timerBar        = document.getElementById('timer-bar')
-const scanPrompt      = document.getElementById('scan-prompt')
-const countdownEl     = document.getElementById('countdown-overlay')
-const gameOverEl      = document.getElementById('game-over-overlay')
-const finalScoreEl    = document.getElementById('final-score')
-const nameInput       = document.getElementById('name-input')
-const submitBtn       = document.getElementById('submit-btn')
-const wsDot           = document.getElementById('ws-dot')
-const container       = document.getElementById('container')
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const nameScreen   = document.getElementById('name-screen')
+const statusOl     = document.getElementById('status-overlay')
+const sTitle       = document.getElementById('s-title')
+const sMsg         = document.getElementById('s-msg')
+const scoreVal     = document.getElementById('score-val')
+const timerVal     = document.getElementById('timer-val')
+const timerBar     = document.getElementById('timer-bar')
+const scanPrompt   = document.getElementById('scan-prompt')
+const targetPeek   = document.getElementById('target-peek')
+const targetHint   = document.getElementById('target-hint')
+const hintImg      = document.getElementById('hint-img')
+const countdownEl  = document.getElementById('countdown-overlay')
+const gameoverEl   = document.getElementById('gameover')
+const goScore      = document.getElementById('go-score')
+const goRank       = document.getElementById('go-rank')
+const container    = document.getElementById('container')
+const wsDot        = document.getElementById('ws-dot')
 
-// ── Game state ───────────────────────────────────────────────────────────────
-// WAITING → COUNTDOWN → PLAYING → GAMEOVER → SUBMITTED
-let gameState = 'WAITING'
-let score     = 0
-let timeLeft  = GAME_DURATION
-let timerInterval = null
-
-// ── WebSocket ────────────────────────────────────────────────────────────────
-let ws = null
-
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+let ws = null, playerName = ''
 function connectWS() {
-  const url = `ws://${location.hostname}:${location.port || 3000}`
-  ws = new WebSocket(url)
-  ws.onopen  = () => wsDot.className = 'connected'
-  ws.onclose = () => { wsDot.className = 'error'; setTimeout(connectWS, 2500) }
-  ws.onerror = () => wsDot.className = 'error'
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  ws = new WebSocket(`${proto}//${location.host}`)
+  ws.onopen  = () => { wsDot.className = 'ok'; ws.send(JSON.stringify({ type: 'player_connect', playerId, desktopId })) }
+  ws.onclose = () => { wsDot.className = 'err'; setTimeout(connectWS, 2500) }
+  ws.onmessage = (e) => {
+    let msg; try { msg = JSON.parse(e.data) } catch { return }
+    if (msg.type === 'score_saved') goRank.textContent = msg.rank === 1 ? '🥇 New high score!' : `Rank #${msg.rank}`
+  }
 }
 connectWS()
+function wsSend(obj) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)) }
 
-function wsSend(msg) {
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
+// ── Name screen ───────────────────────────────────────────────────────────────
+const nameInput = document.getElementById('player-name-input')
+const nsError   = document.getElementById('ns-error')
+
+document.getElementById('play-btn').addEventListener('click', submitName)
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName() })
+
+function submitName() {
+  const name = nameInput.value.trim()
+  if (!name) { nsError.textContent = 'Please enter your name'; nsError.classList.add('show'); return }
+  nsError.classList.remove('show')
+  playerName = name
+  wsSend({ type: 'set_name', name })
+  nameScreen.classList.add('hidden')
+  startAR()
 }
 
-// ── Three.js / MindAR setup ──────────────────────────────────────────────────
-const mindarThree = new MindARThree({
-  container,
-  imageTargetSrc: './target.mind',
-  uiLoading: 'no',
-  uiError: 'no',
-  uiScanning: 'no',
-})
+// ── AR init (runs after name entered) ─────────────────────────────────────────
+async function startAR() {
+  statusOl.classList.add('show')
+  sMsg.textContent = 'Loading config…'
 
-const { renderer, scene, camera } = mindarThree
-const anchor = mindarThree.addAnchor(0)
+  const cfg = await fetch('/config.json').then(r => r.json()).catch(() => ({}))
+  const targetMindUrl  = cfg.targetMindUrl  || './targets.mind'
+  const targetImageUrl = cfg.targetImageUrl || ''
 
-// ── Bubble geometry (shared, low-poly) ──────────────────────────────────────
-const bubbleGeo = new THREE.SphereGeometry(BUBBLE_RADIUS, 6, 5)
+  if (targetImageUrl) { targetPeek.src = targetImageUrl; hintImg.src = targetImageUrl }
+  else targetPeek.style.display = 'none'
 
-// ── Build bubble grid ────────────────────────────────────────────────────────
-const bubbleGrid = new THREE.Group()
-const bubbleMeshes = []
+  targetPeek.addEventListener('click', () => targetHint.classList.add('show'))
+  document.getElementById('hint-close').addEventListener('click', () => targetHint.classList.remove('show'))
 
-const startX = -(COLS - 1) * BUBBLE_SPACING / 2
-const startY =  (ROWS - 1) * BUBBLE_SPACING / 2
+  sMsg.textContent = 'Requesting camera…'
+  let mindar
+  try {
+    mindar = new MindARThree({ container, imageTargetSrc: targetMindUrl, uiLoading:'no', uiError:'no', uiScanning:'no' })
+  } catch (e) { showError(`AR init failed: ${e.message}`); return }
 
-function randomType() {
-  let r = Math.random() * TOTAL_WEIGHT
-  for (const t of BUBBLE_TYPES) { r -= t.weight; if (r <= 0) return t }
-  return BUBBLE_TYPES[0]
-}
+  const { renderer, scene, camera } = mindar
 
-for (let row = 0; row < ROWS; row++) {
-  for (let col = 0; col < COLS; col++) {
-    const type = randomType()
-    const mat  = new THREE.MeshBasicMaterial({ color: type.color })
-    const mesh = new THREE.Mesh(bubbleGeo, mat)
+  // ── Lighting ──────────────────────────────────────────────────────────────
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55))
+  const sun = new THREE.DirectionalLight(0xfff4e0, 1.1)
+  sun.position.set(0.5, 1.5, 2)
+  scene.add(sun)
+  const fill = new THREE.DirectionalLight(0xd0e8ff, 0.4)
+  fill.position.set(-1, 0, 1)
+  scene.add(fill)
 
-    mesh.position.set(
-      startX + col * BUBBLE_SPACING,
-      startY - row * BUBBLE_SPACING,
-      Z_OFFSET,
-    )
+  const anchor = mindar.addAnchor(0)
 
-    mesh.userData = {
-      type,
-      baseY:    startY - row * BUBBLE_SPACING,
-      phase:    Math.random() * Math.PI * 2,
-      popping:  false,
-      spawning: false,
-    }
+  // ── Build the bear toy ────────────────────────────────────────────────────
+  const { toyGroup, btnDomes } = buildBearToy()
+  anchor.group.add(toyGroup)
 
-    mesh.visible = false
-    bubbleGrid.add(mesh)
-    bubbleMeshes.push(mesh)
+  // ── Raycaster ─────────────────────────────────────────────────────────────
+  const ray = new THREE.Raycaster()
+  const ndc = new THREE.Vector2()
+  function castRay(cx, cy) {
+    if (gameState !== 'PLAYING') return
+    const r = renderer.domElement.getBoundingClientRect()
+    ndc.x =  ((cx - r.left) / r.width)  * 2 - 1
+    ndc.y = -((cy - r.top)  / r.height) * 2 + 1
+    ray.setFromCamera(ndc, camera)
+    const hits = ray.intersectObjects(btnDomes)
+    if (hits.length) pressBtn(hits[0].object)
   }
-}
+  container.addEventListener('touchstart', e => { e.preventDefault(); castRay(e.touches[0].clientX, e.touches[0].clientY) }, { passive:false })
+  container.addEventListener('click', e => castRay(e.clientX, e.clientY))
 
-anchor.group.add(bubbleGrid)
+  // ── Game state ────────────────────────────────────────────────────────────
+  const GAME_DURATION = 30
+  let gameState = 'WAITING'
+  let score = 0, timeLeft = GAME_DURATION, timerInterval = null, spawnTimeout = null
 
-// ── Raycaster ────────────────────────────────────────────────────────────────
-const raycaster = new THREE.Raycaster()
-const ndcTouch  = new THREE.Vector2()
+  // Button states: 'off' | 'green' | 'purple'
+  const btnStates  = new Array(btnDomes.length).fill('off')
+  const btnTimers  = new Array(btnStates.length).fill(null)
+  const pressAnims = new Map() // dome → { t0, duration }
 
-function castRay(clientX, clientY) {
-  if (gameState !== 'PLAYING') return
-  const rect = renderer.domElement.getBoundingClientRect()
-  ndcTouch.x =  ((clientX - rect.left) / rect.width)  * 2 - 1
-  ndcTouch.y = -((clientY - rect.top)  / rect.height) * 2 + 1
-  raycaster.setFromCamera(ndcTouch, camera)
-  const hits = raycaster.intersectObjects(bubbleMeshes)
-  if (hits.length > 0) popBubble(hits[0].object)
-}
+  // Colors
+  const COL_OFF    = 0x9E8478
+  const COL_GREEN  = 0x44FF72
+  const COL_PURPLE = 0xDD33FF
+  const COL_FLASH  = 0xFF3344
 
-container.addEventListener('touchstart', (e) => {
-  e.preventDefault()
-  castRay(e.touches[0].clientX, e.touches[0].clientY)
-}, { passive: false })
-
-// desktop fallback for testing
-container.addEventListener('click', (e) => castRay(e.clientX, e.clientY))
-
-// ── Bubble actions ───────────────────────────────────────────────────────────
-function popBubble(mesh) {
-  if (mesh.userData.popping || mesh.userData.spawning || !mesh.visible) return
-  if (gameState !== 'PLAYING') return
-
-  mesh.userData.popping  = true
-  mesh.userData.popStart = performance.now()
-
-  const { type } = mesh.userData
-  score += type.points
-  updateHUD()
-  showFloatScore(type.points, type.cssColor, mesh)
-  wsSend({ type: 'live_score', name: nameInput.value.trim() || 'Playing…', score })
-}
-
-function respawnBubble(mesh) {
-  if (gameState !== 'PLAYING') return
-  const type = randomType()
-  mesh.material = new THREE.MeshBasicMaterial({ color: type.color })
-  mesh.userData.type     = type
-  mesh.userData.popping  = false
-  mesh.userData.spawning = true
-  mesh.userData.spawnStart = performance.now()
-  mesh.scale.setScalar(0)
-  mesh.visible = true
-}
-
-// ── Floating "+N" score label ────────────────────────────────────────────────
-function showFloatScore(points, cssColor, mesh) {
-  // project 3D → 2D
-  const pos = new THREE.Vector3()
-  mesh.getWorldPosition(pos)
-  pos.project(camera)
-
-  const x = (pos.x *  0.5 + 0.5) * window.innerWidth
-  const y = (pos.y * -0.5 + 0.5) * window.innerHeight
-
-  const el = document.createElement('div')
-  el.className   = 'float-score'
-  el.textContent = `+${points}`
-  el.style.left  = `${x}px`
-  el.style.top   = `${y}px`
-  el.style.color = cssColor
-  document.body.appendChild(el)
-  setTimeout(() => el.remove(), 860)
-}
-
-// ── HUD helpers ──────────────────────────────────────────────────────────────
-function updateHUD() {
-  scoreDisplay.textContent = score
-  timerDisplay.textContent = timeLeft
-  timerDisplay.style.color = timeLeft <= 5 ? '#ff6b6b' : '#fff'
-
-  const pct = (timeLeft / GAME_DURATION) * 100
-  timerBar.style.width = `${pct}%`
-  timerBar.style.backgroundColor = pct < 20 ? '#ff6b6b' : pct < 50 ? '#ffd93d' : '#6bcb77'
-}
-
-// ── Game flow ────────────────────────────────────────────────────────────────
-anchor.onTargetFound = () => {
-  if (gameState === 'WAITING') startCountdown()
-}
-
-function startCountdown() {
-  gameState = 'COUNTDOWN'
-  scanPrompt.style.opacity = '0'
-  countdownEl.style.display = 'flex'
-
-  let count = 3
-  countdownEl.textContent = count
-
-  const iv = setInterval(() => {
-    count--
-    if (count > 0) {
-      countdownEl.textContent = count
-    } else {
-      clearInterval(iv)
-      countdownEl.textContent = 'GO!'
-      setTimeout(() => {
-        countdownEl.style.display = 'none'
-        startGame()
-      }, 700)
+  function setBtn(i, state) {
+    clearTimeout(btnTimers[i])
+    btnStates[i] = state
+    const mat = btnDomes[i].material
+    if (state === 'off')    { mat.color.setHex(COL_OFF);    mat.emissive?.setHex(0x000000) }
+    if (state === 'green')  { mat.color.setHex(COL_GREEN);  mat.emissive?.setHex(0x226622) }
+    if (state === 'purple') { mat.color.setHex(COL_PURPLE); mat.emissive?.setHex(0x441166) }
+    // Auto-turn-off after window
+    if (state !== 'off') {
+      const ttl = state === 'green' ? 2800 : 2200
+      btnTimers[i] = setTimeout(() => setBtn(i, 'off'), ttl)
     }
-  }, 1000)
-}
+  }
 
-function startGame() {
-  gameState = 'PLAYING'
-  score    = 0
-  timeLeft = GAME_DURATION
-  updateHUD()
+  function pressBtn(dome) {
+    const i = btnDomes.indexOf(dome)
+    if (i === -1 || btnStates[i] === 'off') return
+    clearTimeout(btnTimers[i])
 
-  bubbleMeshes.forEach(m => {
-    m.visible = true
-    m.scale.setScalar(1)
-    m.userData.popping  = false
-    m.userData.spawning = false
-  })
-
-  timerInterval = setInterval(() => {
-    timeLeft--
+    const state = btnStates[i]
+    if (state === 'green') {
+      score += 10; floatLabel('+10', '#44FF72', dome)
+    } else if (state === 'purple') {
+      score = Math.max(0, score - 20); floatLabel('-20', '#DD33FF', dome)
+      dome.material.color.setHex(COL_FLASH) // brief red flash
+    }
     updateHUD()
-    if (timeLeft <= 0) { clearInterval(timerInterval); endGame() }
-  }, 1000)
-}
+    wsSend({ type: 'live_score', score })
 
-function endGame() {
-  gameState = 'GAMEOVER'
-  bubbleMeshes.forEach(m => { m.visible = false })
-  finalScoreEl.textContent = score
-  gameOverEl.style.display = 'flex'
-}
+    // Press animation
+    pressAnims.set(dome, { t0: performance.now(), duration: 180 })
+    setTimeout(() => setBtn(i, 'off'), state === 'purple' ? 120 : 0)
+  }
 
-function resetGame() {
-  gameState = 'WAITING'
-  score    = 0
-  timeLeft = GAME_DURATION
-  updateHUD()
-  gameOverEl.style.display = 'none'
-  scanPrompt.style.opacity  = '1'
-  bubbleMeshes.forEach(m => { m.visible = false })
-}
+  function spawnLoop() {
+    if (gameState !== 'PLAYING') return
+    const progress = 1 - timeLeft / GAME_DURATION   // 0→1
+    const interval = 850 - progress * 430            // 850ms → 420ms (speeds up)
 
-// ── Score submission ─────────────────────────────────────────────────────────
-submitBtn.addEventListener('click', () => {
-  const name = nameInput.value.trim() || 'Anonymous'
-  wsSend({ type: 'submit_score', name, score })
-  gameState = 'SUBMITTED'
+    // Pick 1–2 random OFF buttons to light up
+    const offIdxs = btnStates.map((s, i) => s === 'off' ? i : -1).filter(i => i !== -1)
+    const count = offIdxs.length >= 2 && Math.random() < 0.35 ? 2 : 1
+    for (let k = 0; k < count && offIdxs.length; k++) {
+      const pick = offIdxs.splice(Math.floor(Math.random() * offIdxs.length), 1)[0]
+      setBtn(pick, Math.random() < 0.22 ? 'purple' : 'green')
+    }
 
-  gameOverEl.innerHTML = `
-    <h2 style="font-size:34px;font-weight:800">Score Submitted!</h2>
-    <div id="final-score" style="font-size:88px;font-weight:900;color:#ffd93d;line-height:1">${score}</div>
-    <p style="opacity:.7;font-size:17px">Nice work, ${escapeHtml(name)}!</p>
-    <button id="play-again-btn" style="font-size:19px;font-weight:700;padding:16px 44px;border:none;border-radius:14px;cursor:pointer;background:#4d96ff;color:#fff;pointer-events:all">
-      Play Again
-    </button>
-  `
-  document.getElementById('play-again-btn').addEventListener('click', () => {
-    nameInput.value = name
-    resetGame()
-    // rebuild game-over overlay for next round
-    rebuildGameOverOverlay()
+    spawnTimeout = setTimeout(spawnLoop, interval)
+  }
+
+  function updateHUD() {
+    scoreVal.textContent = score
+    timerVal.textContent = timeLeft
+    timerVal.style.color = timeLeft <= 5 ? '#ff6b6b' : '#fff'
+    const pct = timeLeft / GAME_DURATION * 100
+    timerBar.style.width = pct + '%'
+    timerBar.style.backgroundColor = pct < 20 ? '#ff6b6b' : pct < 50 ? '#ffd93d' : '#6bcb77'
+  }
+
+  anchor.onTargetFound = () => { if (gameState === 'WAITING') startCountdown() }
+
+  function startCountdown() {
+    gameState = 'COUNTDOWN'
+    scanPrompt.style.display = 'none'
+    targetHint.classList.remove('show')
+    countdownEl.style.display = 'flex'
+    let n = 3; countdownEl.textContent = n
+    const iv = setInterval(() => {
+      n--
+      if (n > 0) { countdownEl.textContent = n }
+      else { clearInterval(iv); countdownEl.textContent = 'GO!'; setTimeout(startGame, 700) }
+    }, 1000)
+  }
+
+  function startGame() {
+    gameState = 'PLAYING'; score = 0; timeLeft = GAME_DURATION
+    countdownEl.style.display = 'none'
+    updateHUD()
+    spawnLoop()
+    timerInterval = setInterval(() => {
+      timeLeft--; updateHUD()
+      wsSend({ type: 'live_score', score })
+      if (timeLeft <= 0) { clearInterval(timerInterval); endGame() }
+    }, 1000)
+  }
+
+  function endGame() {
+    gameState = 'GAMEOVER'
+    clearTimeout(spawnTimeout)
+    btnStates.fill(null); btnDomes.forEach((d, i) => { clearTimeout(btnTimers[i]); setBtn(i, 'off') })
+    goScore.textContent = score
+    goRank.textContent  = '…'
+    gameoverEl.style.display = 'flex'
+    wsSend({ type: 'submit_score', score })
+  }
+
+  document.getElementById('again-btn').addEventListener('click', () => {
+    gameoverEl.style.display = 'none'
+    btnStates.fill('off')
+    gameState = 'WAITING'; score = 0; timeLeft = GAME_DURATION
+    updateHUD()
+    scanPrompt.style.display = 'flex'
+    targetHint.classList.add('show')
+    setTimeout(() => targetHint.classList.remove('show'), 3000)
   })
-})
 
-function rebuildGameOverOverlay() {
-  gameOverEl.innerHTML = `
-    <h2>Time's Up!</h2>
-    <div id="final-score">0</div>
-    <input id="name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
-    <button id="submit-btn">Submit Score</button>
-  `
-  // reattach references & listeners
-  document.getElementById('final-score').id = 'final-score'
-  const newSubmit = document.getElementById('submit-btn')
-  const newInput  = document.getElementById('name-input')
-  newInput.value  = nameInput.value // carry name forward
-  // re-hook submit
-  newSubmit.addEventListener('click', () => {
-    const nm = newInput.value.trim() || 'Anonymous'
-    wsSend({ type: 'submit_score', name: nm, score })
-    gameState = 'SUBMITTED'
-    gameOverEl.innerHTML = `
-      <h2 style="font-size:34px;font-weight:800">Score Submitted!</h2>
-      <div style="font-size:88px;font-weight:900;color:#ffd93d;line-height:1">${score}</div>
-      <p style="opacity:.7;font-size:17px">Nice work, ${escapeHtml(nm)}!</p>
-      <button onclick="location.reload()" style="font-size:19px;font-weight:700;padding:16px 44px;border:none;border-radius:14px;cursor:pointer;background:#4d96ff;color:#fff">
-        Play Again
-      </button>
-    `
-  })
-}
+  // ── Floating label ─────────────────────────────────────────────────────────
+  function floatLabel(text, color, dome) {
+    const pos = new THREE.Vector3(); dome.getWorldPosition(pos); pos.project(camera)
+    const el = document.createElement('div')
+    el.className = 'float-label'
+    el.textContent = text
+    el.style.left  = `${(pos.x*.5+.5)*window.innerWidth}px`
+    el.style.top   = `${(pos.y*-.5+.5)*window.innerHeight}px`
+    el.style.color = color
+    document.body.appendChild(el)
+    setTimeout(() => el.remove(), 920)
+  }
 
-function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-}
+  // ── Start MindAR ──────────────────────────────────────────────────────────
+  sMsg.textContent = 'Starting camera…'
+  try { await mindar.start() }
+  catch (e) { showError(e?.name === 'NotAllowedError' ? 'Camera permission denied — allow and refresh.' : `AR failed: ${e?.message}`); return }
 
-// ── Render loop ──────────────────────────────────────────────────────────────
-await mindarThree.start()
+  statusOl.classList.remove('show')
+  scanPrompt.style.display = 'flex'
+  targetHint.classList.add('show')
+  setTimeout(() => targetHint.classList.remove('show'), 4000)
 
-renderer.setAnimationLoop(() => {
-  const now = performance.now()
+  // ── Render loop ────────────────────────────────────────────────────────────
+  renderer.setAnimationLoop(() => {
+    const now = performance.now()
 
-  if (gameState === 'PLAYING' || gameState === 'GAMEOVER') {
-    bubbleMeshes.forEach(mesh => {
-      const ud = mesh.userData
-
-      // pop animation
-      if (ud.popping) {
-        const t = Math.min((now - ud.popStart) / 200, 1)
-        mesh.scale.setScalar(1 - t)
-        if (t >= 1) {
-          mesh.visible = false
-          ud.popping   = false
-          if (gameState === 'PLAYING') {
-            setTimeout(() => respawnBubble(mesh), 600 + Math.random() * 1400)
-          }
-        }
-        return
-      }
-
-      // spawn animation
-      if (ud.spawning) {
-        const t = Math.min((now - ud.spawnStart) / 300, 1)
-        mesh.scale.setScalar(t)
-        if (t >= 1) { ud.spawning = false; mesh.scale.setScalar(1) }
-        return
-      }
-
-      // idle bob
-      if (mesh.visible) {
-        mesh.position.y = ud.baseY + Math.sin(now / 1000 * 1.4 + ud.phase) * 0.008
+    // Button pulse for lit buttons
+    btnDomes.forEach((dome, i) => {
+      const s = btnStates[i]
+      if (s === 'green' || s === 'purple') {
+        const pulse = 1 + Math.sin(now / 140) * 0.05
+        dome.scale.setScalar(pulse)
       }
     })
+
+    // Press animations
+    pressAnims.forEach((anim, dome) => {
+      const t = Math.min((now - anim.t0) / anim.duration, 1)
+      dome.scale.setScalar(1 - Math.sin(t * Math.PI) * 0.28)
+      if (t >= 1) { dome.scale.setScalar(1); pressAnims.delete(dome) }
+    })
+
+    renderer.render(scene, camera)
+  })
+}
+
+function showError(msg) {
+  statusOl.className = 'show error'
+  sTitle.textContent = 'Error'
+  sMsg.textContent = msg
+}
+
+// ── Bear toy builder ──────────────────────────────────────────────────────────
+function buildBearToy() {
+  const g = new THREE.Group()
+
+  // Materials
+  const mBody     = new THREE.MeshLambertMaterial({ color: 0xF0EBE0 })
+  const mRecess   = new THREE.MeshLambertMaterial({ color: 0xBFA49E })
+  const mBtnRim   = new THREE.MeshLambertMaterial({ color: 0xB8978F })
+  const mBear     = new THREE.MeshLambertMaterial({ color: 0x8B5E3C })
+  const mInnerEar = new THREE.MeshLambertMaterial({ color: 0xC4846A })
+  const mDark     = new THREE.MeshBasicMaterial({ color: 0x1A0E08 })
+  const mCtrl     = new THREE.MeshLambertMaterial({ color: 0xC8B0A8 })
+
+  // ── Body ──────────────────────────────────────────────────────────────────
+  const bodyShape = roundedRect(0.70, 0.88, 0.10)
+  const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, { depth:0.13, bevelEnabled:true, bevelThickness:0.022, bevelSize:0.022, bevelSegments:3 })
+  const body = new THREE.Mesh(bodyGeo, mBody)
+  // roundedRect already centers at origin — no offset needed
+  g.add(body)
+
+  // ── Display recess ────────────────────────────────────────────────────────
+  const recShape = roundedRect(0.50, 0.44, 0.06)
+  const recGeo = new THREE.ExtrudeGeometry(recShape, { depth:0.008, bevelEnabled:false })
+  const rec = new THREE.Mesh(recGeo, mRecess)
+  rec.position.set(0, -0.06, 0.13)
+  g.add(rec)
+
+  // ── Control buttons (top strip, above recess) ────────────────────────────
+  const ctrlGeo = new THREE.BoxGeometry(0.044, 0.025, 0.012)
+  ;[-0.09, 0, 0.09].forEach(x => {
+    const c = new THREE.Mesh(ctrlGeo, mCtrl)
+    c.position.set(x, 0.20, 0.145)
+    g.add(c)
+  })
+
+  // ── Pop buttons (4 × 3 grid inside recess) ───────────────────────────────
+  const COLS = 4, ROWS = 3
+  const SX = 0.108, SY = 0.100
+  const rimGeo  = new THREE.CylinderGeometry(0.042, 0.042, 0.018, 16)
+  const domeGeo = new THREE.SphereGeometry(0.036, 14, 10, 0, Math.PI*2, 0, Math.PI/2)
+  const btnDomes = []
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const x = (col - (COLS-1)/2) * SX
+      const y = (row - (ROWS-1)/2) * SY * -1 - 0.06  // centered on recess (y≈-0.06)
+
+      const rim = new THREE.Mesh(rimGeo, mBtnRim)
+      rim.rotation.x = Math.PI / 2
+      rim.position.set(x, y, 0.142)
+      g.add(rim)
+
+      const mat  = new THREE.MeshLambertMaterial({ color: 0x9E8478, emissive: 0x000000 })
+      const dome = new THREE.Mesh(domeGeo, mat)
+      dome.rotation.x = Math.PI / 2
+      dome.position.set(x, y, 0.148)
+      g.add(dome)
+      btnDomes.push(dome)
+    }
   }
 
-  renderer.render(scene, camera)
-})
+  // ── Bear head (sits above body top at y=0.44) ─────────────────────────────
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115, 18, 14), mBear)
+  head.position.set(0, 0.50, 0.085)
+  g.add(head)
+
+  // Bear body shoulder bumps (near top-corners of body)
+  ;[-0.30, 0.30].forEach(x => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), mBear)
+    ear.position.set(x, 0.37, 0.075)
+    g.add(ear)
+  })
+
+  // Head ears
+  ;[-1, 1].forEach(side => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.050, 12, 10), mBear)
+    ear.position.set(side * 0.090, 0.570, 0.080)
+    g.add(ear)
+    const ie = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), mInnerEar)
+    ie.position.set(side * 0.090, 0.570, 0.112)
+    g.add(ie)
+  })
+
+  // Eyes
+  ;[-1, 1].forEach(side => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), mDark)
+    eye.position.set(side * 0.038, 0.490, 0.196)
+    g.add(eye)
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.006, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }))
+    shine.position.set(side * 0.038 + 0.008, 0.496, 0.202)
+    g.add(shine)
+  })
+
+  // Nose
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.019, 10, 8), mDark)
+  nose.position.set(0, 0.462, 0.200)
+  g.add(nose)
+
+  // Cheeks (blush)
+  ;[-1, 1].forEach(side => {
+    const blush = new THREE.Mesh(
+      new THREE.SphereGeometry(0.026, 10, 8),
+      new THREE.MeshLambertMaterial({ color: 0xE8A090, transparent: true, opacity: 0.65 })
+    )
+    blush.position.set(side * 0.068, 0.458, 0.194)
+    g.add(blush)
+  })
+
+  return { toyGroup: g, btnDomes }
+}
+
+// Rounded rectangle shape helper
+function roundedRect(w, h, r) {
+  const s = new THREE.Shape()
+  s.moveTo(-w/2 + r, -h/2)
+  s.lineTo( w/2 - r, -h/2)
+  s.quadraticCurveTo( w/2, -h/2,  w/2, -h/2 + r)
+  s.lineTo( w/2,  h/2 - r)
+  s.quadraticCurveTo( w/2,  h/2,  w/2 - r,  h/2)
+  s.lineTo(-w/2 + r,  h/2)
+  s.quadraticCurveTo(-w/2,  h/2, -w/2,  h/2 - r)
+  s.lineTo(-w/2, -h/2 + r)
+  s.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2)
+  return s
+}
 </script>
 </body>
 </html>
