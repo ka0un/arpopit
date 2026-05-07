@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<!--
+  AR Bubble Pop — Leaderboard Display (laptop/TV screen)
+  Open this at http://<SERVER_IP>:3000/leaderboard.html
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AR Bubble Pop — Leaderboard</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a12;
+      color: #fff;
+      font-family: 'Inter', -apple-system, Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ──────────────────────────────── */
+    header {
+      padding: 28px 48px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      flex-shrink: 0;
+    }
+
+    .title-block h1 {
+      font-size: 38px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #6bcb77, #4d96ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+    .title-block p {
+      font-size: 14px;
+      opacity: .45;
+      margin-top: 2px;
+    }
+
+    /* ── Live badge ──────────────────────────── */
+    #live-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 40px;
+      padding: 10px 22px;
+      font-size: 14px;
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity .4s;
+    }
+    #live-badge.show { opacity: 1; }
+    #live-badge .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #ff6b6b;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .5; transform: scale(.7); }
+    }
+    #live-name  { color: #ffd93d; font-weight: 900; }
+    #live-score { color: #6bcb77; font-weight: 900; }
+
+    /* ── Main content ────────────────────────── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── Leaderboard list ────────────────────── */
+    #leaderboard-wrap {
+      padding: 24px 48px 24px 48px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .entry {
+      display: grid;
+      grid-template-columns: 80px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 24px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      animation: slide-in .4s ease both;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .entry.flash { animation: flash-in .5s ease; }
+    @keyframes flash-in {
+      0%,100% { background: rgba(255,255,255,.04); }
+      50%      { background: rgba(109,203,119,.18); }
+    }
+
+    /* Top 3 highlights */
+    .entry.rank-1 { background: rgba(255,215,0,.08); border-color: rgba(255,215,0,.2); }
+    .entry.rank-2 { background: rgba(192,192,192,.07); border-color: rgba(192,192,192,.18); }
+    .entry.rank-3 { background: rgba(205,127,50,.07); border-color: rgba(205,127,50,.18); }
+
+    .rank-badge {
+      font-size: 28px;
+      font-weight: 900;
+      text-align: center;
+      line-height: 1;
+    }
+    .rank-1 .rank-badge { color: #ffd700; }
+    .rank-2 .rank-badge { color: #c0c0c0; }
+    .rank-3 .rank-badge { color: #cd7f32; }
+
+    .entry-name {
+      font-size: 24px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entry-score {
+      font-size: 32px;
+      font-weight: 900;
+      color: #6bcb77;
+      white-space: nowrap;
+    }
+    .rank-1 .entry-score { color: #ffd700; }
+
+    .empty-state {
+      text-align: center;
+      opacity: .3;
+      font-size: 18px;
+      margin-top: 60px;
+    }
+
+    /* ── Sidebar ─────────────────────────────── */
+    aside {
+      border-left: 1px solid rgba(255,255,255,.07);
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    .side-section h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: .4;
+      margin-bottom: 12px;
+    }
+
+    /* Bubble legend */
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+    .legend-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-pts { font-weight: 700; color: #6bcb77; margin-left: auto; }
+
+    /* How to play */
+    .how-step {
+      display: flex;
+      gap: 10px;
+      font-size: 14px;
+      margin-bottom: 10px;
+      opacity: .75;
+      line-height: 1.4;
+    }
+    .how-step .num {
+      background: rgba(77,150,255,.25);
+      color: #4d96ff;
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+
+    /* Connection status */
+    #conn-status {
+      margin-top: auto;
+      font-size: 12px;
+      opacity: .35;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #conn-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #888;
+      transition: background .4s;
+    }
+    #conn-dot.ok  { background: #6bcb77; }
+    #conn-dot.err { background: #ff6b6b; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>AR Bubble Pop</h1>
+    <p>Scan the target image on your phone to play</p>
+  </div>
+  <div id="live-badge">
+    <div class="dot"></div>
+    <span id="live-name">—</span>
+    <span style="opacity:.5">is playing</span>
+    <span id="live-score">0 pts</span>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div id="leaderboard-wrap">
+      <div class="empty-state">No scores yet — be the first to play!</div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="side-section">
+      <h3>Bubble values</h3>
+      <div class="legend-item"><div class="legend-dot" style="background:#bbbbbb"></div>Grey   <span class="legend-pts">+1 pt</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#4d96ff"></div>Blue   <span class="legend-pts">+2 pts</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#6bcb77"></div>Green  <span class="legend-pts">+3 pts</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffd93d"></div>Yellow <span class="legend-pts">+5 pts</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>Red    <span class="legend-pts">+10 pts</span></div>
+    </div>
+
+    <div class="side-section">
+      <h3>How to play</h3>
+      <div class="how-step"><div class="num">1</div>Open phone.html on your phone</div>
+      <div class="how-step"><div class="num">2</div>Point camera at the target image</div>
+      <div class="how-step"><div class="num">3</div>Wait for 3–2–1 countdown</div>
+      <div class="how-step"><div class="num">4</div>Tap bubbles to pop them — 30 seconds!</div>
+      <div class="how-step"><div class="num">5</div>Enter your name and submit your score</div>
+    </div>
+
+    <div id="conn-status">
+      <div id="conn-dot"></div>
+      <span id="conn-label">Connecting…</span>
+    </div>
+  </aside>
+</main>
+
+<script>
+const STORAGE_KEY = 'ar-bubble-leaderboard-v1'
+
+const wrap      = document.getElementById('leaderboard-wrap')
+const liveBadge = document.getElementById('live-badge')
+const liveName  = document.getElementById('live-name')
+const liveScore = document.getElementById('live-score')
+const connDot   = document.getElementById('conn-dot')
+const connLabel = document.getElementById('conn-label')
+
+// Load persisted leaderboard immediately
+let entries = []
+try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch {}
+if (entries.length) renderLeaderboard(entries, false)
+
+let liveTimeout = null
+let ws = null
+
+function connect() {
+  ws = new WebSocket(`ws://${location.host}`)
+
+  ws.onopen = () => {
+    connDot.className   = 'ok'
+    connLabel.textContent = 'Connected'
+  }
+
+  ws.onclose = () => {
+    connDot.className   = 'err'
+    connLabel.textContent = 'Reconnecting…'
+    setTimeout(connect, 2500)
+  }
+
+  ws.onmessage = (e) => {
+    let msg
+    try { msg = JSON.parse(e.data) } catch { return }
+
+    if (msg.type === 'leaderboard') {
+      entries = msg.entries || []
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)) } catch {}
+      renderLeaderboard(entries, true)
+    }
+
+    if (msg.type === 'live_score') {
+      showLive(msg.name, msg.score)
+    }
+  }
+}
+
+connect()
+
+// ── Render leaderboard ───────────────────────────────────────────────────────
+const RANK_LABEL = ['🥇', '🥈', '🥉']
+
+function rankLabel(i) {
+  return i < 3 ? RANK_LABEL[i] : `#${i + 1}`
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+let prevIds = []
+
+function renderLeaderboard(list, animate) {
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty-state">No scores yet — be the first to play!</div>'
+    prevIds = []
+    return
+  }
+
+  wrap.innerHTML = list.slice(0, 10).map((e, i) => {
+    const isNew   = animate && !prevIds.includes(e.id)
+    const rankCls = `rank-${i + 1}`
+    return `
+      <div class="entry ${rankCls} ${isNew ? 'flash' : ''}">
+        <div class="rank-badge">${rankLabel(i)}</div>
+        <div class="entry-name">${escapeHtml(e.name)}</div>
+        <div class="entry-score">${e.score.toLocaleString()}</div>
+      </div>`
+  }).join('')
+
+  prevIds = list.map(e => e.id)
+}
+
+// ── Live score banner ────────────────────────────────────────────────────────
+function showLive(name, score) {
+  liveName.textContent  = escapeHtml(name)
+  liveScore.textContent = `${score} pts`
+  liveBadge.classList.add('show')
+
+  clearTimeout(liveTimeout)
+  liveTimeout = setTimeout(() => liveBadge.classList.remove('show'), 4000)
+}
+</script>
+</body>
+</html>

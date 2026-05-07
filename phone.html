@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<!--
+  AR Bubble Pop — Phone Game
+  ──────────────────────────
+  SETUP: You need a compiled target.mind file in this directory.
+  1. Go to https://hiukim.github.io/mind-ar-js-doc/tools/compile
+  2. Upload any flat image (printed card, poster, magazine cover, etc.)
+  3. Download the .mind file → save as  target.mind  here
+  4. Print / display that same image as the physical target
+  5. Open this page on your phone and point it at the image
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>AR Bubble Pop</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: -apple-system, Arial, sans-serif; touch-action: none; }
+
+    #container { width: 100vw; height: 100vh; position: relative; }
+
+    /* ── HUD ─────────────────────────────────── */
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      pointer-events: none; z-index: 100;
+    }
+    .hud-box {
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(6px);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 14px;
+      text-align: center;
+      min-width: 90px;
+    }
+    .hud-label { font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: 1px; }
+    .hud-value { font-size: 38px; font-weight: 800; line-height: 1.1; }
+
+    #timer-bar {
+      position: fixed; bottom: 0; left: 0;
+      height: 5px;
+      background: #6bcb77;
+      width: 100%;
+      transition: width 1s linear, background-color 0.5s;
+      z-index: 100;
+    }
+
+    /* ── Scan prompt ─────────────────────────── */
+    #scan-prompt {
+      position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(6px);
+      color: #fff; padding: 14px 28px; border-radius: 28px;
+      font-size: 15px; white-space: nowrap; z-index: 100;
+      transition: opacity .4s;
+    }
+
+    /* ── Countdown overlay ───────────────────── */
+    #countdown-overlay {
+      position: fixed; inset: 0;
+      display: none;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,.45);
+      color: #fff;
+      font-size: 130px; font-weight: 900;
+      z-index: 200;
+      text-shadow: 0 4px 24px rgba(0,0,0,.6);
+    }
+
+    /* ── Game over overlay ───────────────────── */
+    #game-over-overlay {
+      position: fixed; inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,.82);
+      backdrop-filter: blur(8px);
+      color: #fff; gap: 20px;
+      z-index: 300; padding: 24px;
+    }
+    #game-over-overlay h2 { font-size: 40px; font-weight: 800; }
+    #final-score { font-size: 88px; font-weight: 900; color: #ffd93d; line-height: 1; }
+    #name-input {
+      font-size: 22px; padding: 14px 24px;
+      border: 2px solid rgba(255,255,255,.3); border-radius: 14px;
+      background: rgba(255,255,255,.1); color: #fff;
+      width: min(300px, 85vw); text-align: center; outline: none;
+    }
+    #name-input::placeholder { color: rgba(255,255,255,.45); }
+    #submit-btn, #play-again-btn {
+      font-size: 19px; font-weight: 700;
+      padding: 16px 44px;
+      border: none; border-radius: 14px;
+      cursor: pointer; pointer-events: all;
+    }
+    #submit-btn { background: #6bcb77; color: #fff; }
+    #play-again-btn { background: #4d96ff; color: #fff; }
+    .submitted-msg { font-size: 18px; opacity: .75; text-align: center; }
+
+    /* ── Floating score pop ──────────────────── */
+    .float-score {
+      position: fixed;
+      font-size: 30px; font-weight: 900;
+      pointer-events: none; z-index: 150;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translateX(-50%);
+      animation: float-up .85s ease-out forwards;
+    }
+    @keyframes float-up {
+      from { opacity: 1; transform: translateX(-50%) translateY(0); }
+      to   { opacity: 0; transform: translateX(-50%) translateY(-70px); }
+    }
+
+    /* ── WS indicator ────────────────────────── */
+    #ws-dot {
+      position: fixed; bottom: 12px; right: 12px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #888; z-index: 100;
+      transition: background .4s;
+    }
+    #ws-dot.connected { background: #6bcb77; }
+    #ws-dot.error     { background: #ff6b6b; }
+  </style>
+</head>
+<body>
+
+<div id="container"></div>
+
+<div id="hud">
+  <div class="hud-box">
+    <div class="hud-label">Score</div>
+    <div class="hud-value" id="score-display">0</div>
+  </div>
+  <div class="hud-box">
+    <div class="hud-label">Time</div>
+    <div class="hud-value" id="timer-display">30</div>
+  </div>
+</div>
+
+<div id="timer-bar"></div>
+<div id="scan-prompt">📷 Point camera at target image</div>
+<div id="countdown-overlay"></div>
+
+<div id="game-over-overlay">
+  <h2>Time's Up!</h2>
+  <div id="final-score">0</div>
+  <input id="name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
+  <button id="submit-btn">Submit Score</button>
+</div>
+
+<div id="ws-dot" title="Server connection"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three'
+import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
+
+// ── Constants ────────────────────────────────────────────────────────────────
+const GAME_DURATION = 30   // seconds
+const ROWS = 4
+const COLS = 5
+const BUBBLE_RADIUS  = 0.055
+const BUBBLE_SPACING = 0.14
+const Z_OFFSET       = 0.05   // float above target plane
+
+const BUBBLE_TYPES = [
+  { color: 0xbbbbbb, cssColor: '#bbbbbb', label: 'grey',   points: 1,  weight: 5 },
+  { color: 0x4d96ff, cssColor: '#4d96ff', label: 'blue',   points: 2,  weight: 4 },
+  { color: 0x6bcb77, cssColor: '#6bcb77', label: 'green',  points: 3,  weight: 3 },
+  { color: 0xffd93d, cssColor: '#ffd93d', label: 'yellow', points: 5,  weight: 2 },
+  { color: 0xff6b6b, cssColor: '#ff6b6b', label: 'red',    points: 10, weight: 1 },
+]
+const TOTAL_WEIGHT = BUBBLE_TYPES.reduce((s, t) => s + t.weight, 0)
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const scoreDisplay    = document.getElementById('score-display')
+const timerDisplay    = document.getElementById('timer-display')
+const timerBar        = document.getElementById('timer-bar')
+const scanPrompt      = document.getElementById('scan-prompt')
+const countdownEl     = document.getElementById('countdown-overlay')
+const gameOverEl      = document.getElementById('game-over-overlay')
+const finalScoreEl    = document.getElementById('final-score')
+const nameInput       = document.getElementById('name-input')
+const submitBtn       = document.getElementById('submit-btn')
+const wsDot           = document.getElementById('ws-dot')
+const container       = document.getElementById('container')
+
+// ── Game state ───────────────────────────────────────────────────────────────
+// WAITING → COUNTDOWN → PLAYING → GAMEOVER → SUBMITTED
+let gameState = 'WAITING'
+let score     = 0
+let timeLeft  = GAME_DURATION
+let timerInterval = null
+
+// ── WebSocket ────────────────────────────────────────────────────────────────
+let ws = null
+
+function connectWS() {
+  const url = `ws://${location.hostname}:${location.port || 3000}`
+  ws = new WebSocket(url)
+  ws.onopen  = () => wsDot.className = 'connected'
+  ws.onclose = () => { wsDot.className = 'error'; setTimeout(connectWS, 2500) }
+  ws.onerror = () => wsDot.className = 'error'
+}
+connectWS()
+
+function wsSend(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
+}
+
+// ── Three.js / MindAR setup ──────────────────────────────────────────────────
+const mindarThree = new MindARThree({
+  container,
+  imageTargetSrc: './target.mind',
+  uiLoading: 'no',
+  uiError: 'no',
+  uiScanning: 'no',
+})
+
+const { renderer, scene, camera } = mindarThree
+const anchor = mindarThree.addAnchor(0)
+
+// ── Bubble geometry (shared, low-poly) ──────────────────────────────────────
+const bubbleGeo = new THREE.SphereGeometry(BUBBLE_RADIUS, 6, 5)
+
+// ── Build bubble grid ────────────────────────────────────────────────────────
+const bubbleGrid = new THREE.Group()
+const bubbleMeshes = []
+
+const startX = -(COLS - 1) * BUBBLE_SPACING / 2
+const startY =  (ROWS - 1) * BUBBLE_SPACING / 2
+
+function randomType() {
+  let r = Math.random() * TOTAL_WEIGHT
+  for (const t of BUBBLE_TYPES) { r -= t.weight; if (r <= 0) return t }
+  return BUBBLE_TYPES[0]
+}
+
+for (let row = 0; row < ROWS; row++) {
+  for (let col = 0; col < COLS; col++) {
+    const type = randomType()
+    const mat  = new THREE.MeshBasicMaterial({ color: type.color })
+    const mesh = new THREE.Mesh(bubbleGeo, mat)
+
+    mesh.position.set(
+      startX + col * BUBBLE_SPACING,
+      startY - row * BUBBLE_SPACING,
+      Z_OFFSET,
+    )
+
+    mesh.userData = {
+      type,
+      baseY:    startY - row * BUBBLE_SPACING,
+      phase:    Math.random() * Math.PI * 2,
+      popping:  false,
+      spawning: false,
+    }
+
+    mesh.visible = false
+    bubbleGrid.add(mesh)
+    bubbleMeshes.push(mesh)
+  }
+}
+
+anchor.group.add(bubbleGrid)
+
+// ── Raycaster ────────────────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster()
+const ndcTouch  = new THREE.Vector2()
+
+function castRay(clientX, clientY) {
+  if (gameState !== 'PLAYING') return
+  const rect = renderer.domElement.getBoundingClientRect()
+  ndcTouch.x =  ((clientX - rect.left) / rect.width)  * 2 - 1
+  ndcTouch.y = -((clientY - rect.top)  / rect.height) * 2 + 1
+  raycaster.setFromCamera(ndcTouch, camera)
+  const hits = raycaster.intersectObjects(bubbleMeshes)
+  if (hits.length > 0) popBubble(hits[0].object)
+}
+
+container.addEventListener('touchstart', (e) => {
+  e.preventDefault()
+  castRay(e.touches[0].clientX, e.touches[0].clientY)
+}, { passive: false })
+
+// desktop fallback for testing
+container.addEventListener('click', (e) => castRay(e.clientX, e.clientY))
+
+// ── Bubble actions ───────────────────────────────────────────────────────────
+function popBubble(mesh) {
+  if (mesh.userData.popping || mesh.userData.spawning || !mesh.visible) return
+  if (gameState !== 'PLAYING') return
+
+  mesh.userData.popping  = true
+  mesh.userData.popStart = performance.now()
+
+  const { type } = mesh.userData
+  score += type.points
+  updateHUD()
+  showFloatScore(type.points, type.cssColor, mesh)
+  wsSend({ type: 'live_score', name: nameInput.value.trim() || 'Playing…', score })
+}
+
+function respawnBubble(mesh) {
+  if (gameState !== 'PLAYING') return
+  const type = randomType()
+  mesh.material = new THREE.MeshBasicMaterial({ color: type.color })
+  mesh.userData.type     = type
+  mesh.userData.popping  = false
+  mesh.userData.spawning = true
+  mesh.userData.spawnStart = performance.now()
+  mesh.scale.setScalar(0)
+  mesh.visible = true
+}
+
+// ── Floating "+N" score label ────────────────────────────────────────────────
+function showFloatScore(points, cssColor, mesh) {
+  // project 3D → 2D
+  const pos = new THREE.Vector3()
+  mesh.getWorldPosition(pos)
+  pos.project(camera)
+
+  const x = (pos.x *  0.5 + 0.5) * window.innerWidth
+  const y = (pos.y * -0.5 + 0.5) * window.innerHeight
+
+  const el = document.createElement('div')
+  el.className   = 'float-score'
+  el.textContent = `+${points}`
+  el.style.left  = `${x}px`
+  el.style.top   = `${y}px`
+  el.style.color = cssColor
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 860)
+}
+
+// ── HUD helpers ──────────────────────────────────────────────────────────────
+function updateHUD() {
+  scoreDisplay.textContent = score
+  timerDisplay.textContent = timeLeft
+  timerDisplay.style.color = timeLeft <= 5 ? '#ff6b6b' : '#fff'
+
+  const pct = (timeLeft / GAME_DURATION) * 100
+  timerBar.style.width = `${pct}%`
+  timerBar.style.backgroundColor = pct < 20 ? '#ff6b6b' : pct < 50 ? '#ffd93d' : '#6bcb77'
+}
+
+// ── Game flow ────────────────────────────────────────────────────────────────
+anchor.onTargetFound = () => {
+  if (gameState === 'WAITING') startCountdown()
+}
+
+function startCountdown() {
+  gameState = 'COUNTDOWN'
+  scanPrompt.style.opacity = '0'
+  countdownEl.style.display = 'flex'
+
+  let count = 3
+  countdownEl.textContent = count
+
+  const iv = setInterval(() => {
+    count--
+    if (count > 0) {
+      countdownEl.textContent = count
+    } else {
+      clearInterval(iv)
+      countdownEl.textContent = 'GO!'
+      setTimeout(() => {
+        countdownEl.style.display = 'none'
+        startGame()
+      }, 700)
+    }
+  }, 1000)
+}
+
+function startGame() {
+  gameState = 'PLAYING'
+  score    = 0
+  timeLeft = GAME_DURATION
+  updateHUD()
+
+  bubbleMeshes.forEach(m => {
+    m.visible = true
+    m.scale.setScalar(1)
+    m.userData.popping  = false
+    m.userData.spawning = false
+  })
+
+  timerInterval = setInterval(() => {
+    timeLeft--
+    updateHUD()
+    if (timeLeft <= 0) { clearInterval(timerInterval); endGame() }
+  }, 1000)
+}
+
+function endGame() {
+  gameState = 'GAMEOVER'
+  bubbleMeshes.forEach(m => { m.visible = false })
+  finalScoreEl.textContent = score
+  gameOverEl.style.display = 'flex'
+}
+
+function resetGame() {
+  gameState = 'WAITING'
+  score    = 0
+  timeLeft = GAME_DURATION
+  updateHUD()
+  gameOverEl.style.display = 'none'
+  scanPrompt.style.opacity  = '1'
+  bubbleMeshes.forEach(m => { m.visible = false })
+}
+
+// ── Score submission ─────────────────────────────────────────────────────────
+submitBtn.addEventListener('click', () => {
+  const name = nameInput.value.trim() || 'Anonymous'
+  wsSend({ type: 'submit_score', name, score })
+  gameState = 'SUBMITTED'
+
+  gameOverEl.innerHTML = `
+    <h2 style="font-size:34px;font-weight:800">Score Submitted!</h2>
+    <div id="final-score" style="font-size:88px;font-weight:900;color:#ffd93d;line-height:1">${score}</div>
+    <p style="opacity:.7;font-size:17px">Nice work, ${escapeHtml(name)}!</p>
+    <button id="play-again-btn" style="font-size:19px;font-weight:700;padding:16px 44px;border:none;border-radius:14px;cursor:pointer;background:#4d96ff;color:#fff;pointer-events:all">
+      Play Again
+    </button>
+  `
+  document.getElementById('play-again-btn').addEventListener('click', () => {
+    nameInput.value = name
+    resetGame()
+    // rebuild game-over overlay for next round
+    rebuildGameOverOverlay()
+  })
+})
+
+function rebuildGameOverOverlay() {
+  gameOverEl.innerHTML = `
+    <h2>Time's Up!</h2>
+    <div id="final-score">0</div>
+    <input id="name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
+    <button id="submit-btn">Submit Score</button>
+  `
+  // reattach references & listeners
+  document.getElementById('final-score').id = 'final-score'
+  const newSubmit = document.getElementById('submit-btn')
+  const newInput  = document.getElementById('name-input')
+  newInput.value  = nameInput.value // carry name forward
+  // re-hook submit
+  newSubmit.addEventListener('click', () => {
+    const nm = newInput.value.trim() || 'Anonymous'
+    wsSend({ type: 'submit_score', name: nm, score })
+    gameState = 'SUBMITTED'
+    gameOverEl.innerHTML = `
+      <h2 style="font-size:34px;font-weight:800">Score Submitted!</h2>
+      <div style="font-size:88px;font-weight:900;color:#ffd93d;line-height:1">${score}</div>
+      <p style="opacity:.7;font-size:17px">Nice work, ${escapeHtml(nm)}!</p>
+      <button onclick="location.reload()" style="font-size:19px;font-weight:700;padding:16px 44px;border:none;border-radius:14px;cursor:pointer;background:#4d96ff;color:#fff">
+        Play Again
+      </button>
+    `
+  })
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+// ── Render loop ──────────────────────────────────────────────────────────────
+await mindarThree.start()
+
+renderer.setAnimationLoop(() => {
+  const now = performance.now()
+
+  if (gameState === 'PLAYING' || gameState === 'GAMEOVER') {
+    bubbleMeshes.forEach(mesh => {
+      const ud = mesh.userData
+
+      // pop animation
+      if (ud.popping) {
+        const t = Math.min((now - ud.popStart) / 200, 1)
+        mesh.scale.setScalar(1 - t)
+        if (t >= 1) {
+          mesh.visible = false
+          ud.popping   = false
+          if (gameState === 'PLAYING') {
+            setTimeout(() => respawnBubble(mesh), 600 + Math.random() * 1400)
+          }
+        }
+        return
+      }
+
+      // spawn animation
+      if (ud.spawning) {
+        const t = Math.min((now - ud.spawnStart) / 300, 1)
+        mesh.scale.setScalar(t)
+        if (t >= 1) { ud.spawning = false; mesh.scale.setScalar(1) }
+        return
+      }
+
+      // idle bob
+      if (mesh.visible) {
+        mesh.position.y = ud.baseY + Math.sin(now / 1000 * 1.4 + ud.phase) * 0.008
+      }
+    })
+  }
+
+  renderer.render(scene, camera)
+})
+</script>
+</body>
+</html>
