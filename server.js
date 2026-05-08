@@ -1,13 +1,13 @@
-const express   = require('express')
-const http      = require('http')
+const express = require('express')
+const http = require('http')
 const WebSocket = require('ws')
-const fs        = require('fs')
-const path      = require('path')
-const os        = require('os')
+const fs = require('fs')
+const path = require('path')
+const os = require('os')
 
-const app    = express()
+const app = express()
 const server = http.createServer(app)
-const wss    = new WebSocket.Server({ server })
+const wss = new WebSocket.Server({ server })
 
 app.use(express.static(path.join(__dirname)))
 
@@ -42,7 +42,7 @@ saveData()
 // ── In-memory connections ─────────────────────────────────────────────────────
 // desks:   Map<desktopId → ws>
 // players: Map<ws → { playerId, desktopId, name }>
-const desks   = new Map()
+const desks = new Map()
 const players = new Map()
 
 function send(ws, msg) {
@@ -108,7 +108,7 @@ wss.on('connection', (ws) => {
         if (deskWs) {
           send(deskWs, { type: 'player_joined', playerId })
         } else {
-          console.warn(`  ⚠ desk "${desktopId}" not in map — known: [${[...desks.keys()].map(k => k.slice(0,8)).join(', ')}]`)
+          console.warn(`  ⚠ desk "${desktopId}" not in map — known: [${[...desks.keys()].map(k => k.slice(0, 8)).join(', ')}]`)
         }
         send(ws, { type: 'leaderboard', entries: leaderboard.slice(0, 10) })
         break
@@ -172,14 +172,14 @@ wss.on('connection', (ws) => {
         const deskWs = desks.get(player.desktopId)
         send(deskWs, { type: 'player_named', name: newName })
         broadcastLeaderboard()
-        
+
         const historyPayload = JSON.stringify({ type: 'recent_attempts_history', attempts: recentAttempts })
         wss.clients.forEach(c => {
           if (c.readyState === WebSocket.OPEN && (c._role === 'desktop' || c._role === 'leaderboard')) {
             c.send(historyPayload)
           }
         })
-        
+
         console.log(`[rename] "${oldName}" → "${newName}"`)
         break
       }
@@ -188,10 +188,10 @@ wss.on('connection', (ws) => {
         const player = players.get(ws)
         if (!player?.name) break
         const score = Math.max(0, Math.floor(Number(msg.score) || 0))
-        
+
         let entryId = null
         const existingIdx = leaderboard.findIndex(e => e.playerId ? e.playerId === player.playerId : e.name === player.name)
-        
+
         if (existingIdx !== -1) {
           const existing = leaderboard[existingIdx]
           entryId = existing.id
@@ -203,25 +203,25 @@ wss.on('connection', (ws) => {
         } else {
           entryId = Date.now() + Math.random()
           const entry = {
-            id:       entryId,
+            id: entryId,
             playerId: player.playerId,
-            name:     player.name,
-            score:    score,
-            ts:       Date.now(),
+            name: player.name,
+            score: score,
+            ts: Date.now(),
           }
           leaderboard.push(entry)
         }
-        
+
         leaderboard.sort((a, b) => b.score - a.score)
         leaderboard = leaderboard.slice(0, 100)
-        
+
         recentAttempts.unshift({ playerId: player.playerId, name: player.name, score, rank: leaderboard.findIndex(e => e.id === entryId) + 1 })
         if (recentAttempts.length > 5) recentAttempts.pop()
-        
+
         saveData()
         broadcastLeaderboard()
         const rank = leaderboard.findIndex(e => e.id === entryId) + 1
-        
+
         const attemptPayload = JSON.stringify({ type: 'recent_attempt', name: player.name, score: score, rank: rank })
         wss.clients.forEach(c => {
           if (c.readyState === WebSocket.OPEN) c.send(attemptPayload)
@@ -231,7 +231,7 @@ wss.on('connection', (ws) => {
         console.log(`[score] ${player.name}: ${score} (rank ${rank})`)
         break
       }
-      
+
       case 'leaderboard_connect': {
         ws._role = 'leaderboard'
         send(ws, { type: 'leaderboard', entries: leaderboard.slice(0, 10) })
@@ -249,6 +249,10 @@ wss.on('connection', (ws) => {
       console.log(`[desk] disconnected: ${ws._desktopId}`)
     }
     if (ws._role === 'phone') {
+      const deskWs = desks.get(ws._desktopId)
+      if (deskWs && deskWs.readyState === WebSocket.OPEN) {
+        deskWs.send(JSON.stringify({ type: 'player_left', playerId: ws._playerId }))
+      }
       players.delete(ws)
       console.log(`[phone] disconnected: ${ws._playerId}`)
     }
@@ -256,7 +260,7 @@ wss.on('connection', (ws) => {
 })
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 25649
 server.listen(PORT, '0.0.0.0', () => {
   let lanIp = 'localhost'
   for (const ifaces of Object.values(os.networkInterfaces())) {
