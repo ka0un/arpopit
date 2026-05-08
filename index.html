@@ -238,8 +238,15 @@ const STORAGE_KEY = 'ar-bubble-leaderboard-v1'
 const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
 if (isMobile) {
-  document.getElementById('mobile-screen').style.display = 'flex'
-  location.replace('/phone.html')
+  const mScreen = document.getElementById('mobile-screen')
+  mScreen.innerHTML = `
+    <h1 style="color:#C4846A; font-size:24px; margin-bottom:10px;">BearPop AR</h1>
+    <p style="padding:0 30px; line-height:1.5; color:#F0EBE0; opacity:0.8; text-align:center;">
+      Please open this website on your laptop or PC first!<br><br>
+      You need a larger screen to display the AR target and leaderboard, and your phone to scan and play.
+    </p>
+  `
+  mScreen.style.display = 'flex'
 } else {
   document.getElementById('desktop-screen').style.display = 'grid'
   ;(async () => {

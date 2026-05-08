@@ -638,9 +638,14 @@ async function startAR() {
     gameState = 'WAITING'; score = 0; timeLeft = GAME_DURATION
     resetCombo()
     updateHUD()
-    scanPrompt.style.display = 'flex'
-    targetHint.classList.add('show')
-    setTimeout(() => targetHint.classList.remove('show'), 3000)
+    
+    if (anchor.group.visible) {
+      startCountdown()
+    } else {
+      scanPrompt.style.display = 'flex'
+      targetHint.classList.add('show')
+      setTimeout(() => targetHint.classList.remove('show'), 3000)
+    }
   })
 
   // ── Floating label ─────────────────────────────────────────────────────────
