@@ -511,7 +511,13 @@ async function startAR() {
       updateHUD()
       wsSend({ type: 'live_score', score, timeLeft })
       wsSend({ type: 'btn_press', color: 'green' })
-      setTimeout(() => setBtn(i, 'off'), 0)
+      setTimeout(() => {
+        setBtn(i, 'off')
+        if (timeLeft <= 15 && !btnStates.includes('green')) {
+          clearTimeout(spawnTimeout)
+          spawnLoop()
+        }
+      }, 0)
     } else if (state === 'purple') {
       resetCombo()
       dome.material.color.setHex(COL_FLASH)
