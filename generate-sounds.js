@@ -74,31 +74,62 @@ wav('ping.wav', 0.18, (d, sr) => {
   }
 })
 
-// ── bomb: long deflating squash (game over — hit purple) ─────────────────────
-// Heavy "SMOOSH" and slow sad deflate: low thud + air-rush + rubbery decay
-wav('bomb.wav', 2.5, (d, sr) => {
-  const lpfNoise = makeLPF(180)
-  let ph1 = 0, ph2 = 0, ph3 = 0
+// ── bomb: glass crack/shatter (game over — hit purple) ─────────────────────
+// Sharp, high-frequency transients and stiff metallic resonance for breaking glass
+wav('bomb.wav', 1.5, (d, sr) => {
+  // Simple 1-pole high-pass filter
+  function makeHPF(cutoff, sr) {
+    const rc = 1 / (2 * Math.PI * cutoff)
+    const dt = 1 / sr
+    const a  = rc / (rc + dt)
+    let prevX = 0, prevY = 0
+    return (x) => {
+      const y = a * (prevY + x - prevX)
+      prevX = x
+      prevY = y
+      return y
+    }
+  }
+
+  const hpf = makeHPF(1500, sr) 
+
+  // Random crack events
+  const cracks = [0] // Main impact
+  for(let j=0; j<12; j++) cracks.push(Math.random() * 0.35 + 0.02)
+  
+  // Frequencies for glass resonance
+  const freqs = [2100, 3450, 4820, 6100, 7500]
+
   for (let i = 0; i < d.length; i++) {
     const t = i / sr
-    // Very deep body deflating slowly: 160→10 Hz over 2 seconds
-    const f1 = 160 * Math.pow(10 / 160, t / 2.0)
-    ph1 += 2 * Math.PI * f1 / sr
-    // Mid squish layer: 300→40 Hz over 1.5 seconds
-    const f2 = 300 * Math.pow(40 / 300, t / 1.5)
-    ph2 += 2 * Math.PI * f2 / sr
-    // Tiny high squeak at impact
-    const f3 = 820 * Math.pow(150 / 820, t / 0.3)
-    ph3 += 2 * Math.PI * f3 / sr
-    const squeakEnv = Math.exp(-t * 15)
-    // Muffled air rush deflating
-    const rush = lpfNoise(Math.random() * 2 - 1) * Math.exp(-t * 2) * 0.5
-    const e1 = (1 - Math.exp(-t / 0.05)) * Math.exp(-t * 1.5)
-    const e2 = (1 - Math.exp(-t / 0.02)) * Math.exp(-t * 3)
-    d[i] = Math.sin(ph1) * 0.70 * e1
-         + Math.sin(ph2) * 0.35 * e2
-         + Math.sin(ph3) * 0.15 * squeakEnv
-         + rush
+    let v = 0
+    
+    // Impact noise (shatter)
+    let noiseSum = 0
+    cracks.forEach((ct, idx) => {
+      if (t >= ct) {
+        const dt = t - ct
+        // Sharp attack, extremely fast decay for each shard click
+        const amp = idx === 0 ? 1.0 : (0.2 + Math.random() * 0.3)
+        noiseSum += Math.exp(-dt * 300) * amp
+      }
+    })
+    
+    const noise = hpf(Math.random() * 2 - 1)
+    v += noise * noiseSum * 1.5
+
+    // High frequency metallic/glass resonance
+    let res = 0
+    freqs.forEach((f, idx) => {
+      const env = Math.exp(-t * (15 + idx * 5))
+      // Slight pitch bend down to simulate stress release
+      const pitchBend = f * Math.pow(0.95, t * 10)
+      res += Math.sin(2 * Math.PI * pitchBend * t) * env * 0.15
+    })
+    v += res
+    
+    // Final master volume tweak
+    d[i] = Math.max(-1, Math.min(1, v * 0.9))
   }
 })
 
