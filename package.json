@@ -8,6 +8,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "express": "^4.18.2",
+    "howler": "^2.2.4",
     "mind-ar": "^1.2.5",
     "three": "^0.160.0",
     "ws": "^8.14.2"

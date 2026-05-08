@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>AR Bubble Pop</title>
-<script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
+<script src="/node_modules/howler/dist/howler.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body { background:#1A0E08; color:#F0EBE0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow:hidden; touch-action:none; }
@@ -92,6 +92,7 @@
       50%      { transform:scale(1.1); border-color:rgba(196,132,106,.9); }
     }
     #tap-start p { font-size:14px; opacity:.35; color:#F0EBE0; }
+    #audio-status { font-size:13px; padding:8px 18px; border-radius:20px; background:rgba(240,235,224,.08); color:rgba(240,235,224,.5); display:none; }
 
     /* ── WS dot ───────────────────────────────────── */
     #ws-dot { position:fixed; bottom:12px; right:12px; width:10px; height:10px; border-radius:50%; background:#555; z-index:100; transition:background .4s; }
@@ -107,6 +108,7 @@
   <h1>AR Bear Pop</h1>
   <div class="tap-ring"><span>🐻</span></div>
   <p>Tap anywhere to start</p>
+  <div id="audio-status"></div>
 </div>
 
 <!-- Status -->
@@ -244,8 +246,23 @@ function wsSend(obj) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.strin
 // Howler handles iOS AudioContext unlock automatically.
 let SFX = null
 
+function setAudioStatus(msg) {
+  const el = document.getElementById('audio-status')
+  if (!el) return
+  el.textContent = msg
+  el.style.display = 'block'
+}
+
 function initAudio() {
   if (SFX) return
+
+  if (typeof Howl === 'undefined') {
+    setAudioStatus('⚠️ Audio library failed to load — try refreshing')
+    return
+  }
+
+  setAudioStatus('⏳ Loading sounds…')
+
   SFX = {
     pop:     new Howl({ src: ['/sounds/pop.wav'],     volume: 0.8 }),
     ping:    new Howl({ src: ['/sounds/ping.wav'],    volume: 0.6 }),
@@ -255,9 +272,21 @@ function initAudio() {
     go:      new Howl({ src: ['/sounds/go.wav'],      volume: 0.8 }),
     success: new Howl({ src: ['/sounds/success.wav'], volume: 0.8 }),
   }
-  // Unlock Howler immediately inside the user gesture by playing a silent ping
-  SFX.ping.once('end', () => {})
-  SFX.ping.play()
+
+  // Play ping immediately inside the user gesture to unlock Howler on iOS
+  SFX.ping.once('load', () => {
+    SFX.ping.play()
+    setAudioStatus('🔊 Audio ready')
+    setTimeout(() => { const el = document.getElementById('audio-status'); if (el) el.style.display = 'none' }, 2000)
+  })
+  SFX.ping.once('loaderror', () => setAudioStatus('⚠️ Sound files failed — check server & refresh'))
+
+  // If already loaded (cached), play immediately
+  if (SFX.ping.state() === 'loaded') {
+    SFX.ping.play()
+    setAudioStatus('🔊 Audio ready')
+    setTimeout(() => { const el = document.getElementById('audio-status'); if (el) el.style.display = 'none' }, 2000)
+  }
 }
 
 function playPop()     { SFX?.pop.play() }
