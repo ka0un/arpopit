@@ -74,30 +74,30 @@ wav('ping.wav', 0.18, (d, sr) => {
   }
 })
 
-// ── bomb: deep wet squash (game over — hit purple) ────────────────────────────
-// Heavy "SMOOSH": low thud layer + air-rush noise + rubbery body resonance
-wav('bomb.wav', 0.75, (d, sr) => {
+// ── bomb: long deflating squash (game over — hit purple) ─────────────────────
+// Heavy "SMOOSH" and slow sad deflate: low thud + air-rush + rubbery decay
+wav('bomb.wav', 2.5, (d, sr) => {
   const lpfNoise = makeLPF(180)
   let ph1 = 0, ph2 = 0, ph3 = 0
   for (let i = 0; i < d.length; i++) {
     const t = i / sr
-    // Very deep body: 140→22 Hz
-    const f1 = 140 * Math.pow(22 / 140, t / 0.60)
+    // Very deep body deflating slowly: 160→10 Hz over 2 seconds
+    const f1 = 160 * Math.pow(10 / 160, t / 2.0)
     ph1 += 2 * Math.PI * f1 / sr
-    // Mid squish layer: 280→55 Hz
-    const f2 = 280 * Math.pow(55 / 280, t / 0.35)
+    // Mid squish layer: 300→40 Hz over 1.5 seconds
+    const f2 = 300 * Math.pow(40 / 300, t / 1.5)
     ph2 += 2 * Math.PI * f2 / sr
-    // Tiny high squeak at impact (rubbery)
-    const f3 = 820 * Math.pow(200 / 820, t / 0.12)
+    // Tiny high squeak at impact
+    const f3 = 820 * Math.pow(150 / 820, t / 0.3)
     ph3 += 2 * Math.PI * f3 / sr
-    const squeakEnv = Math.exp(-t * 30)
-    // Muffled air rush on hit
-    const rush = lpfNoise(Math.random() * 2 - 1) * Math.exp(-t * 12) * 0.35
-    const e1 = (1 - Math.exp(-t / 0.012)) * Math.exp(-t * 5)
-    const e2 = (1 - Math.exp(-t / 0.008)) * Math.exp(-t * 10)
-    d[i] = Math.sin(ph1) * 0.65 * e1
-         + Math.sin(ph2) * 0.30 * e2
-         + Math.sin(ph3) * 0.18 * squeakEnv
+    const squeakEnv = Math.exp(-t * 15)
+    // Muffled air rush deflating
+    const rush = lpfNoise(Math.random() * 2 - 1) * Math.exp(-t * 2) * 0.5
+    const e1 = (1 - Math.exp(-t / 0.05)) * Math.exp(-t * 1.5)
+    const e2 = (1 - Math.exp(-t / 0.02)) * Math.exp(-t * 3)
+    d[i] = Math.sin(ph1) * 0.70 * e1
+         + Math.sin(ph2) * 0.35 * e2
+         + Math.sin(ph3) * 0.15 * squeakEnv
          + rush
   }
 })
@@ -152,11 +152,11 @@ wav('go.wav', 0.75, (d, sr) => {
   }
 })
 
-// ── success: bubble-wrap cascade (time's up / good ending) ────────────────────
-// 5 satisfying ascending squishes — very ASMR, like popping a row of bubbles
-wav('success.wav', 1.0, (d, sr) => {
-  const notes  = [160, 210, 270, 340, 430]
-  const delays = [0, 0.12, 0.24, 0.36, 0.48]
+// ── success: longer bubble-wrap cascade (time's up / good ending) ──────────────
+// A triumphant major arpeggio cascade of squishes
+wav('success.wav', 2.5, (d, sr) => {
+  const notes  = [164, 207, 246, 329, 415, 493, 659, 830, 987, 1318]
+  const delays = [0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90, 1.05, 1.20, 1.35]
   // Per-note phase tracking
   const phases = new Float64Array(notes.length)
   for (let i = 0; i < d.length; i++) {
@@ -164,14 +164,88 @@ wav('success.wav', 1.0, (d, sr) => {
     let v = 0
     notes.forEach((baseFreq, ni) => {
       const nt = t - delays[ni]
-      if (nt < 0 || nt > 0.35) return
-      const freq = baseFreq * Math.pow(0.22, nt / 0.30)
+      if (nt < 0 || nt > 1.2) return
+      const freq = baseFreq * Math.pow(0.5, nt / 1.0)
       phases[ni] += 2 * Math.PI * freq / sr
-      const vib = 1 + 0.015 * Math.sin(2 * Math.PI * 12 * nt) * Math.exp(-nt * 5)
-      const env = (1 - Math.exp(-nt / 0.008)) * Math.exp(-nt * 7)
-      // Mix fundamental + soft 2nd harmonic
-      v += (Math.sin(phases[ni] * vib) * 0.65 + Math.sin(phases[ni] * 2 * vib) * 0.10) * env * 0.60
+      const vib = 1 + 0.015 * Math.sin(2 * Math.PI * 12 * nt) * Math.exp(-nt * 3)
+      const env = (1 - Math.exp(-nt / 0.008)) * Math.exp(-nt * 3)
+      v += (Math.sin(phases[ni] * vib) * 0.65 + Math.sin(phases[ni] * 2 * vib) * 0.10) * env * 0.50
     })
+    d[i] = Math.max(-1, Math.min(1, v))
+  }
+})
+
+// ── bgm: 64-second upbeat squishy background track (evolving) ───────────────
+wav('bgm.wav', 64.0, (d, sr) => {
+  const bpm = 120
+  const beat = 60 / bpm // 0.5s per beat
+  
+  // C major pentatonic for melody
+  const pentatonic = [261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3, 659.3]
+  
+  // Roots for a long 32-bar progression (1 bar = 4 beats = 2 seconds)
+  const roots = [
+    130.8, 196.0, 220.0, 174.6, // C G Am F
+    130.8, 196.0, 146.8, 174.6, // C G Dm F
+    220.0, 174.6, 130.8, 196.0, // Am F C G
+    146.8, 220.0, 174.6, 196.0, // Dm Am F G
+    174.6, 130.8, 196.0, 220.0, // F C G Am
+    174.6, 196.0, 130.8, 130.8, // F G C C
+    220.0, 164.8, 174.6, 130.8, // Am Em F C
+    146.8, 196.0, 130.8, 130.8, // Dm G C C
+  ]
+  
+  // Simple hash function for pseudo-random melody
+  function hash(n) {
+    let x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  for (let i = 0; i < d.length; i++) {
+    const t = i / sr
+    let v = 0
+    
+    // Determine current bar and beat
+    const totalBeats = Math.floor(t / beat)
+    const bar = Math.floor(totalBeats / 4)
+    const rootFreq = roots[bar % roots.length]
+    
+    // Bass (every beat)
+    const bassT = t % beat
+    const bassEnv = (1 - Math.exp(-bassT / 0.01)) * Math.exp(-bassT * 3)
+    const isOffBeat = totalBeats % 2 !== 0
+    const bassFreq = isOffBeat ? rootFreq * 2 : rootFreq
+    v += Math.sin(2 * Math.PI * bassFreq * t) * 0.3 * bassEnv
+    
+    // Arpeggio/Melody (every half beat)
+    const halfBeatT = t % (beat / 2)
+    const halfBeatIdx = Math.floor(t / (beat / 2))
+    
+    // Generate an evolving pattern based on the bar and halfBeatIdx
+    const patternSeed = (Math.floor(bar / 2)) * 10 + (halfBeatIdx % 8)
+    const randomVal = hash(patternSeed)
+    
+    const noteIdx = Math.floor(randomVal * pentatonic.length)
+    const melNote = pentatonic[noteIdx]
+    
+    const isRest = hash(patternSeed + 100) > 0.85
+    if (!isRest) {
+      const melEnv = (1 - Math.exp(-halfBeatT / 0.005)) * Math.exp(-halfBeatT * 6)
+      v += Math.sin(2 * Math.PI * melNote * t) * 0.15 * melEnv
+    }
+    
+    // Subtle squish hi-hat on 1/4 beats
+    const qBeatT = t % (beat / 4)
+    const qBeatIdx = Math.floor(t / (beat / 4))
+    if (qBeatIdx % 2 !== 0) {
+       v += (Math.random() * 2 - 1) * 0.03 * Math.exp(-qBeatT * 50)
+    }
+
+    // Soft pad/chords that fade in and out based on the root
+    const padEnv = 0.5 + 0.5 * Math.sin(t * Math.PI / 2)
+    v += Math.sin(2 * Math.PI * rootFreq * t) * 0.06 * padEnv
+    v += Math.sin(2 * Math.PI * rootFreq * 1.5 * t) * 0.04 * padEnv
+
     d[i] = Math.max(-1, Math.min(1, v))
   }
 })

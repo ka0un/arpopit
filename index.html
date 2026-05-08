@@ -135,6 +135,32 @@
     #press-label.show-purple { animation: label-pop-purple 0.85s ease-out forwards; }
     @keyframes label-pop-green  { 0%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 100%{opacity:0;transform:translate(-50%,-60%) scale(1)} }
     @keyframes label-pop-purple { 0%{opacity:1;transform:translate(-50%,-50%) scale(1.2)} 100%{opacity:0;transform:translate(-50%,-62%) scale(1)} }
+
+    /* ── Desktop Particles ────────────────────────── */
+    .desktop-particle {
+      position: absolute;
+      width: 8px; height: 8px; border-radius: 50%;
+      pointer-events: none;
+      animation: pop-particle 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+      box-shadow: 0 0 10px currentColor;
+      z-index: 202;
+    }
+    @keyframes pop-particle {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+    }
+
+    /* ── Recent Attempts ──────────────────────────── */
+    .recent-entry {
+      display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:10px; 
+      padding:8px 14px; border-radius:8px; background:rgba(240,235,224,.03); 
+      border:1px solid rgba(196,132,106,.08); color:#F0EBE0;
+      animation: slide-in-top 0.4s ease both;
+    }
+    @keyframes slide-in-top { from{opacity:0; transform:translateY(-10px)} to{opacity:1; transform:translateY(0)} }
+    .recent-entry .r-rank { font-size:12px; opacity:0.4; font-weight:700; }
+    .recent-entry .r-name { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-entry .r-score { font-size:15px; font-weight:800; color:#E8A090; }
   </style>
 </head>
 <body>
@@ -160,13 +186,21 @@
 
   <div class="right-panel">
     <div class="board-header">
-      <h2>Leaderboard</h2>
+      <h2>Top 10 Leaderboard</h2>
       <div style="display:flex; gap:12px; align-items:center;">
         <div id="live-timer" style="font-size:24px; font-weight:900; font-variant-numeric: tabular-nums; color:#fff; display:none;">30s</div>
         <div id="live-badge"><div class="dot"></div><span id="live-name">—</span>&nbsp;·&nbsp;<span id="live-pts">0</span></div>
       </div>
     </div>
     <div id="board-wrap"><div class="empty-state">No scores yet — be the first!</div></div>
+    
+    <div class="board-header" style="border-top:1px solid rgba(196,132,106,.15); padding-top:16px; padding-bottom:12px; flex-shrink:0;">
+      <h2 style="font-size:14px; color:#C4846A;">Live Latest Attempts</h2>
+    </div>
+    <div id="recent-wrap" style="padding:0 32px 16px; display:flex; flex-direction:column; gap:8px; flex-shrink:0; min-height:80px;">
+      <div class="empty-state" style="margin-top:10px; font-size:13px;">Waiting for games to finish...</div>
+    </div>
+
     <div class="board-footer">
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#44FF72"></div>+10 pts</div>
@@ -245,6 +279,46 @@ if (isMobile) {
     playerBadge.classList.add('show')
   }
 
+  const recentWrap = document.getElementById('recent-wrap')
+  function addRecentAttempt(name, score, rank) {
+    if (recentWrap.querySelector('.empty-state')) recentWrap.innerHTML = ''
+    const el = document.createElement('div')
+    el.className = 'recent-entry'
+    el.innerHTML = `
+      <div class="r-rank">#${rank}</div>
+      <div class="r-name">${esc(name)}</div>
+      <div class="r-score">${score.toLocaleString()}</div>
+    `
+    recentWrap.prepend(el)
+    if (recentWrap.children.length > 3) recentWrap.lastElementChild.remove()
+  }
+
+  function spawnDesktopParticles(color) {
+    const container = document.getElementById('desktop-screen')
+    const numParticles = color === 'green' ? 12 : 24
+    const hex = color === 'green' ? '#44FF72' : '#DD33FF'
+
+    for (let i = 0; i < numParticles; i++) {
+      const p = document.createElement('div')
+      p.className = 'desktop-particle'
+      p.style.backgroundColor = hex
+      p.style.color = hex
+      
+      const angle = Math.random() * Math.PI * 2
+      const speed = color === 'green' ? 80 + Math.random() * 120 : 150 + Math.random() * 200
+      const tx = Math.cos(angle) * speed
+      const ty = Math.sin(angle) * speed
+      
+      p.style.setProperty('--tx', `${tx}px`)
+      p.style.setProperty('--ty', `${ty}px`)
+      p.style.left = `calc(50% - 4px)`
+      p.style.top = `calc(50% - 4px)`
+      
+      container.appendChild(p)
+      setTimeout(() => p.remove(), 800)
+    }
+  }
+
   function showBtnFlash(color, name) {
     const flash = document.getElementById('btn-flash')
     const label = document.getElementById('press-label')
@@ -260,6 +334,8 @@ if (isMobile) {
     label.style.color = color === 'green' ? '#44FF72' : '#DD33FF'
     label.classList.add(color === 'green' ? 'show-green' : 'show-purple')
     
+    spawnDesktopParticles(color)
+
     if (color === 'purple') {
       document.body.classList.add('shake-hard')
       setTimeout(() => document.body.classList.remove('shake-hard'), 500)
@@ -308,6 +384,7 @@ if (isMobile) {
       if (msg.type === 'player_named')  showPlayer(msg.name)
       if (msg.type === 'live_score')    showLive(msg.name, msg.score, msg.timeLeft)
       if (msg.type === 'btn_press')     showBtnFlash(msg.color, msg.name)
+      if (msg.type === 'recent_attempt') addRecentAttempt(msg.name, msg.score, msg.rank)
     }
   }
   connect()

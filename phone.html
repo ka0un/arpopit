@@ -310,6 +310,7 @@ function initAudio() {
     beep880: new Howl({ src: ['/sounds/beep880.wav'], volume: 0.5 }),
     go:      new Howl({ src: ['/sounds/go.wav'],      volume: 0.8 }),
     success: new Howl({ src: ['/sounds/success.wav'], volume: 0.8 }),
+    bgm:     new Howl({ src: ['/sounds/bgm.wav'],     volume: 0.35, loop: true }),
   }
 
   const onPingReady = () => {
@@ -337,6 +338,8 @@ function playBomb()    { SFX?.bomb.play() }
 function playBeep(freq){ freq === 880 ? SFX?.beep880.play() : SFX?.beep660.play() }
 function playGo()      { SFX?.go.play() }
 function playSuccess() { SFX?.success.play() }
+function playBGM()     { if (SFX && !SFX.bgm.playing()) SFX.bgm.play() }
+function stopBGM()     { SFX?.bgm.stop() }
 
 // ── Tap to start (required user gesture for camera + audio on iOS) ────────────
 const tapStart = document.getElementById('tap-start')
@@ -571,6 +574,7 @@ async function startAR() {
     resetCombo()
     countdownEl.style.display = 'none'
     updateHUD()
+    playBGM()
     spawnLoop()
     timerInterval = setInterval(() => {
       timeLeft--; updateHUD()
@@ -582,6 +586,7 @@ async function startAR() {
 
   function endGame(reason = 'timer') {
     gameState = 'GAMEOVER'
+    stopBGM()
     clearTimeout(spawnTimeout)
     clearInterval(timerInterval)
     btnDomes.forEach((d, i) => { clearTimeout(btnTimers[i]); setBtn(i, 'off') })

@@ -197,6 +197,12 @@ wss.on('connection', (ws) => {
         saveData()
         broadcastLeaderboard()
         const rank = leaderboard.findIndex(e => e.id === entryId) + 1
+        
+        const attemptPayload = JSON.stringify({ type: 'recent_attempt', name: player.name, score: score, rank: rank })
+        wss.clients.forEach(c => {
+          if (c._role === 'desktop' && c.readyState === WebSocket.OPEN) c.send(attemptPayload)
+        })
+
         send(ws, { type: 'score_saved', rank })
         console.log(`[score] ${player.name}: ${score} (rank ${rank})`)
         break
