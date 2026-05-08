@@ -295,27 +295,35 @@ if (isMobile) {
 
   function spawnDesktopParticles(color) {
     const container = document.getElementById('desktop-screen')
-    const numParticles = color === 'green' ? 12 : 24
-    const hex = color === 'green' ? '#44FF72' : '#DD33FF'
+    const numParticles = color === 'party' ? 60 : color === 'green' ? 12 : 24
+    const partyColors = ['#FF4444', '#44FF44', '#4444FF', '#FFFF44', '#FF44FF', '#44FFFF']
 
     for (let i = 0; i < numParticles; i++) {
       const p = document.createElement('div')
       p.className = 'desktop-particle'
+      const hex = color === 'party' ? partyColors[Math.floor(Math.random() * partyColors.length)] : (color === 'green' ? '#44FF72' : '#DD33FF')
       p.style.backgroundColor = hex
       p.style.color = hex
       
       const angle = Math.random() * Math.PI * 2
-      const speed = color === 'green' ? 80 + Math.random() * 120 : 150 + Math.random() * 200
+      const speed = color === 'party' ? 100 + Math.random() * 300 : (color === 'green' ? 80 + Math.random() * 120 : 150 + Math.random() * 200)
       const tx = Math.cos(angle) * speed
       const ty = Math.sin(angle) * speed
       
       p.style.setProperty('--tx', `${tx}px`)
       p.style.setProperty('--ty', `${ty}px`)
-      p.style.left = `calc(50% - 4px)`
-      p.style.top = `calc(50% - 4px)`
+      
+      if (color === 'party') {
+        p.style.left = `50%`
+        p.style.top = `30%`
+        p.style.animationDuration = '1.2s'
+      } else {
+        p.style.left = `calc(50% - 4px)`
+        p.style.top = `calc(50% - 4px)`
+      }
       
       container.appendChild(p)
-      setTimeout(() => p.remove(), 800)
+      setTimeout(() => p.remove(), color === 'party' ? 1200 : 800)
     }
   }
 
@@ -384,7 +392,10 @@ if (isMobile) {
       if (msg.type === 'player_named')  showPlayer(msg.name)
       if (msg.type === 'live_score')    showLive(msg.name, msg.score, msg.timeLeft)
       if (msg.type === 'btn_press')     showBtnFlash(msg.color, msg.name)
-      if (msg.type === 'recent_attempt') addRecentAttempt(msg.name, msg.score, msg.rank)
+      if (msg.type === 'recent_attempt') {
+        addRecentAttempt(msg.name, msg.score, msg.rank)
+        if (msg.rank <= 10) spawnDesktopParticles('party')
+      }
     }
   }
   connect()

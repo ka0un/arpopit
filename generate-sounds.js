@@ -281,4 +281,39 @@ wav('bgm.wav', 64.0, (d, sr) => {
   }
 })
 
+// ── tada: celebratory horn/chime for leaderboard ────────────────────────────
+wav('tada.wav', 1.5, (d, sr) => {
+  const notes = [440, 554.37, 659.25, 880] // A4, C#5, E5, A5 (A major chord)
+  for (let i = 0; i < d.length; i++) {
+    const t = i / sr
+    let v = 0
+    
+    // "Ta" part: 0 to 0.15s, A4 + E5
+    if (t < 0.15) {
+      const env = (1 - Math.exp(-t / 0.01)) * Math.exp(-t * 20)
+      v += (Math.sin(2 * Math.PI * 440 * t) + Math.sin(2 * Math.PI * 659.25 * t)) * env * 0.3
+    }
+    
+    // "Da" part: 0.15s to 1.5s, full A major chord + flourish
+    if (t >= 0.15) {
+      const t2 = t - 0.15
+      const env = (1 - Math.exp(-t2 / 0.02)) * Math.exp(-t2 * 3)
+      notes.forEach((f, idx) => {
+        const delay = idx * 0.03
+        if (t2 >= delay) {
+           const t3 = t2 - delay
+           const env2 = Math.exp(-t3 * 3)
+           v += Math.sin(2 * Math.PI * f * t3) * env2 * 0.25
+        }
+      })
+      // Add a sparkly sweep
+      if (t2 < 0.4) {
+         v += Math.sin(2 * Math.PI * (2000 + t2 * 5000) * t2) * Math.exp(-t2 * 10) * 0.05
+      }
+    }
+    
+    d[i] = Math.max(-1, Math.min(1, v))
+  }
+})
+
 console.log('\nAll squishy sounds generated.')

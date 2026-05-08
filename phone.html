@@ -258,6 +258,7 @@ function connectWS() {
       
       const editBtn = document.getElementById('go-name-edit-btn')
       if (rank <= 10) {
+        playTada()
         editBtn.style.display = 'inline-block'
         // Only auto-prompt if still using auto-generated name
         if (playerName.startsWith('Bear#')) {
@@ -311,6 +312,7 @@ function initAudio() {
     go:      new Howl({ src: ['/sounds/go.wav'],      volume: 0.8 }),
     success: new Howl({ src: ['/sounds/success.wav'], volume: 0.8 }),
     bgm:     new Howl({ src: ['/sounds/bgm.wav'],     volume: 0.35, loop: true }),
+    tada:    new Howl({ src: ['/sounds/tada.wav'],    volume: 0.8 }),
   }
 
   const onPingReady = () => {
@@ -340,6 +342,7 @@ function playGo()      { SFX?.go.play() }
 function playSuccess() { SFX?.success.play() }
 function playBGM()     { if (SFX && !SFX.bgm.playing()) SFX.bgm.play() }
 function stopBGM()     { SFX?.bgm.stop() }
+function playTada()    { SFX?.tada.play() }
 
 // ── Tap to start (required user gesture for camera + audio on iOS) ────────────
 const tapStart = document.getElementById('tap-start')

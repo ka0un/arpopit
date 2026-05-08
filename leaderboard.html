@@ -247,6 +247,13 @@
 
   <aside>
     <div class="side-section">
+      <h3>Live Latest Attempts</h3>
+      <div id="recent-wrap" style="display:flex; flex-direction:column; gap:8px;">
+        <div class="empty-state" style="margin-top:0; font-size:13px; text-align:left;">Waiting for games to finish...</div>
+      </div>
+    </div>
+
+    <div class="side-section">
       <h3>Bubble values</h3>
       <div class="legend-item"><div class="legend-dot" style="background:#bbbbbb"></div>Grey   <span class="legend-pts">+1 pt</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:#4d96ff"></div>Blue   <span class="legend-pts">+2 pts</span></div>
@@ -317,10 +324,32 @@ function connect() {
     if (msg.type === 'live_score') {
       showLive(msg.name, msg.score)
     }
+
+    if (msg.type === 'recent_attempt') {
+      addRecentAttempt(msg.name, msg.score, msg.rank)
+    }
   }
 }
 
 connect()
+
+// ── Recent Attempts ──────────────────────────────────────────────────────────
+const recentWrap = document.getElementById('recent-wrap')
+function addRecentAttempt(name, score, rank) {
+  if (recentWrap.querySelector('.empty-state')) recentWrap.innerHTML = ''
+  const el = document.createElement('div')
+  el.className = 'legend-item'
+  el.style.background = 'rgba(255,255,255,0.05)'
+  el.style.padding = '8px 12px'
+  el.style.borderRadius = '8px'
+  el.innerHTML = `
+    <div style="font-size:12px; opacity:0.5; font-weight:700;">#${rank}</div>
+    <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 150px;">${escapeHtml(name)}</div>
+    <div class="legend-pts">${score.toLocaleString()}</div>
+  `
+  recentWrap.prepend(el)
+  if (recentWrap.children.length > 5) recentWrap.lastElementChild.remove()
+}
 
 // ── Render leaderboard ───────────────────────────────────────────────────────
 const RANK_LABEL = ['🥇', '🥈', '🥉']
