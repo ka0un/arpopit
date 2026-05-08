@@ -36,8 +36,22 @@ function broadcastLeaderboard() {
   wss.clients.forEach(ws => { if (ws.readyState === WebSocket.OPEN) ws.send(payload) })
 }
 
+// ── Heartbeat — keeps connections alive through ngrok's idle timeout ───────────
+// Marks each WS alive on pong; terminates those that miss two beats.
+const PING_INTERVAL = 25_000 // 25s, well under ngrok's 60s idle limit
+wss.on('connection', ws => { ws.isAlive = true })
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (!ws.isAlive) { ws.terminate(); return }
+    ws.isAlive = false
+    ws.ping()
+  })
+}, PING_INTERVAL)
+
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 wss.on('connection', (ws) => {
+  ws.on('pong', () => { ws.isAlive = true })
+
   ws.on('message', (raw) => {
     let msg; try { msg = JSON.parse(raw) } catch { return }
 
@@ -49,7 +63,18 @@ wss.on('connection', (ws) => {
         ws._desktopId = desktopId
         ws._role = 'desktop'
         send(ws, { type: 'leaderboard', entries: leaderboard.slice(0, 10) })
-        console.log(`[desk] ${desktopId}`)
+
+        // Re-notify desk of any players already waiting for it
+        // (handles race where phone connected before desktop WS was ready)
+        let replayed = 0
+        for (const [, player] of players) {
+          if (player.desktopId === desktopId) {
+            send(ws, { type: 'player_joined', playerId: player.playerId })
+            if (player.name) send(ws, { type: 'player_named', name: player.name })
+            replayed++
+          }
+        }
+        console.log(`[desk] ${desktopId} (replayed ${replayed} player(s))`)
         break
       }
 
@@ -59,9 +84,14 @@ wss.on('connection', (ws) => {
         ws._role = 'phone'
         ws._playerId = playerId
         ws._desktopId = desktopId
-        send(desks.get(desktopId), { type: 'player_joined', playerId })
+        const deskWs = desks.get(desktopId)
+        console.log(`[phone] ${playerId} → desk "${desktopId}" (found=${!!deskWs})`)
+        if (deskWs) {
+          send(deskWs, { type: 'player_joined', playerId })
+        } else {
+          console.warn(`  ⚠ desk "${desktopId}" not in map — known: [${[...desks.keys()].map(k => k.slice(0,8)).join(', ')}]`)
+        }
         send(ws, { type: 'leaderboard', entries: leaderboard.slice(0, 10) })
-        console.log(`[phone] ${playerId} → desk ${desktopId}`)
         break
       }
 
@@ -71,8 +101,9 @@ wss.on('connection', (ws) => {
         const name = String(msg.name || '').trim().slice(0, 20) || 'Player'
         player.name = name
         send(ws, { type: 'name_ok', name })
-        send(desks.get(player.desktopId), { type: 'player_named', name })
-        console.log(`[name] ${name}`)
+        const deskWs = desks.get(player.desktopId)
+        console.log(`[name] "${name}" → desk "${player.desktopId}" (found=${!!deskWs})`)
+        send(deskWs, { type: 'player_named', name })
         break
       }
 
@@ -81,7 +112,6 @@ wss.on('connection', (ws) => {
         if (!player?.name) break
         const score = Math.max(0, Math.floor(Number(msg.score) || 0))
         const payload = JSON.stringify({ type: 'live_score', name: player.name, score })
-        // Send to paired desktop + broadcast to all desktops
         wss.clients.forEach(c => {
           if (c._role === 'desktop' && c.readyState === WebSocket.OPEN) c.send(payload)
         })
@@ -111,8 +141,16 @@ wss.on('connection', (ws) => {
   })
 
   ws.on('close', () => {
-    if (ws._role === 'desktop') desks.delete(ws._desktopId)
-    if (ws._role === 'phone')   players.delete(ws)
+    // Only remove the desk entry if it still points to THIS websocket
+    // (prevents deleting a newer connection that already replaced us)
+    if (ws._role === 'desktop' && desks.get(ws._desktopId) === ws) {
+      desks.delete(ws._desktopId)
+      console.log(`[desk] disconnected: ${ws._desktopId}`)
+    }
+    if (ws._role === 'phone') {
+      players.delete(ws)
+      console.log(`[phone] disconnected: ${ws._playerId}`)
+    }
   })
 })
 

@@ -6,43 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>AR Bubble Pop</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    body { background:#0a0a12; color:#fff; font-family:'Inter',Arial,sans-serif; overflow:hidden; touch-action:none; }
-
-    /* ── Name screen ──────────────────────────────── */
-    #name-screen {
-      position:fixed; inset:0; z-index:600; background:#0a0a12;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      padding:32px 24px; gap:28px;
-    }
-    #name-screen.hidden { display:none; }
-    .ns-logo { text-align:center; }
-    .ns-logo h1 {
-      font-size:32px; font-weight:900; letter-spacing:-1px;
-      background:linear-gradient(135deg,#6bcb77,#4d96ff);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-    }
-    .ns-logo p { font-size:14px; opacity:.4; margin-top:6px; }
-    .ns-card { width:100%; max-width:320px; display:flex; flex-direction:column; gap:16px; }
-    .ns-label { font-size:13px; font-weight:600; opacity:.5; text-transform:uppercase; letter-spacing:.8px; }
-    #player-name-input {
-      width:100%; padding:16px 20px; border-radius:14px;
-      background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.12);
-      color:#fff; font-family:inherit; font-size:22px; font-weight:700;
-      outline:none; text-align:center; transition:border-color .2s;
-    }
-    #player-name-input:focus { border-color:rgba(109,203,119,.6); }
-    #player-name-input::placeholder { color:rgba(255,255,255,.2); font-weight:400; font-size:18px; }
-    #play-btn {
-      padding:18px; border:none; border-radius:14px; font-family:inherit;
-      font-size:20px; font-weight:800; cursor:pointer; letter-spacing:.3px;
-      background:linear-gradient(135deg,#6bcb77,#4d96ff); color:#fff;
-      transition:transform .15s, opacity .15s;
-    }
-    #play-btn:active { transform:scale(.97); opacity:.9; }
-    #ns-error { font-size:13px; color:#ff6b6b; text-align:center; display:none; }
-    #ns-error.show { display:block; }
+    body { background:#0a0a12; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow:hidden; touch-action:none; }
 
     /* ── Status overlay ───────────────────────────── */
     #status-overlay {
@@ -103,26 +68,44 @@
     .float-label { position:fixed; font-size:32px; font-weight:900; pointer-events:none; z-index:150; transform:translateX(-50%); animation:float-up .9s ease-out forwards; }
     @keyframes float-up { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(-80px)} }
 
+    /* ── Tap-to-start overlay ────────────────────────── */
+    #tap-start {
+      position:fixed; inset:0; z-index:600; background:#0a0a12;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:24px; cursor:pointer; user-select:none;
+    }
+    #tap-start h1 {
+      font-size:28px; font-weight:900;
+      background:linear-gradient(135deg,#6bcb77,#4d96ff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    #tap-start .tap-ring {
+      width:110px; height:110px; border-radius:50%;
+      border:3px solid rgba(109,203,119,.4);
+      display:flex; align-items:center; justify-content:center;
+      animation:ring-pulse 1.8s ease-in-out infinite;
+    }
+    #tap-start .tap-ring span { font-size:48px; }
+    @keyframes ring-pulse {
+      0%,100% { transform:scale(1);   border-color:rgba(109,203,119,.4); }
+      50%      { transform:scale(1.1); border-color:rgba(109,203,119,.9); }
+    }
+    #tap-start p { font-size:14px; opacity:.4; }
+
     /* ── WS dot ───────────────────────────────────── */
     #ws-dot { position:fixed; bottom:12px; right:12px; width:10px; height:10px; border-radius:50%; background:#888; z-index:100; transition:background .4s; }
     #ws-dot.ok  { background:#6bcb77; }
     #ws-dot.err { background:#ff6b6b; }
+
   </style>
 </head>
 <body>
 
-<!-- Name input -->
-<div id="name-screen">
-  <div class="ns-logo">
-    <h1>AR Bubble Pop</h1>
-    <p>Quick-push bear edition · 30 seconds</p>
-  </div>
-  <div class="ns-card">
-    <div class="ns-label">What's your name?</div>
-    <input id="player-name-input" type="text" placeholder="Enter your name" maxlength="20" autocorrect="off" autocapitalize="words">
-    <div id="ns-error"></div>
-    <button id="play-btn">Let's Play →</button>
-  </div>
+<!-- Tap to start (provides user gesture for camera on iOS) -->
+<div id="tap-start">
+  <h1>AR Bear Pop</h1>
+  <div class="tap-ring"><span>🐻</span></div>
+  <p>Tap anywhere to start</p>
 </div>
 
 <!-- Status -->
@@ -154,6 +137,39 @@
 </div>
 <div id="ws-dot"></div>
 
+<script>
+// Must run before the module — catches all crashes and shows them on screen
+// instead of leaving a black screen (critical for Safari)
+;(function() {
+  function showFatalError(msg) {
+    document.getElementById('tap-start').style.display = 'none'
+    var o = document.getElementById('status-overlay')
+    o.className = 'show error'
+    document.getElementById('s-title').textContent = 'Error'
+    document.getElementById('s-msg').textContent   = msg
+    var b = document.createElement('button')
+    b.textContent = 'Tap to Retry'
+    b.style.cssText = 'margin-top:18px;padding:14px 36px;border:none;border-radius:12px;background:#4d96ff;color:#fff;font-size:16px;font-weight:700;cursor:pointer'
+    b.onclick = function(){ location.reload() }
+    o.appendChild(b)
+  }
+
+  // Catch uncaught JS errors (module crashes, MindAR/TF.js failures, etc.)
+  window.onerror = function(msg, src, line, col, err) {
+    showFatalError((err && err.message) || msg || 'Unknown error')
+    return true
+  }
+  window.onunhandledrejection = function(e) {
+    showFatalError((e.reason && e.reason.message) || String(e.reason) || 'Unhandled error')
+  }
+
+  // Importmap not supported → Safari < 16.4, older Android WebView
+  if (!HTMLScriptElement.supports || !HTMLScriptElement.supports('importmap')) {
+    showFatalError('Your browser doesn\'t support ES importmaps. Use Chrome or update Safari to 16.4+.')
+  }
+})()
+</script>
+
 <script type="importmap">
 {
   "imports": {
@@ -170,15 +186,17 @@ import { MindARThree } from '/node_modules/mind-ar/dist/mindar-image-three.prod.
 const desktopId = new URLSearchParams(location.search).get('desk') || ''
 let playerId = sessionStorage.getItem('playerId')
 if (!playerId) { playerId = crypto.randomUUID(); sessionStorage.setItem('playerId', playerId) }
+const playerName = 'Bear#' + playerId.replace(/-/g,'').slice(0, 4).toUpperCase()
 
 // ── HTTPS guard ───────────────────────────────────────────────────────────────
 if (location.protocol !== 'https:' && !['localhost','127.0.0.1'].includes(location.hostname)) {
-  document.getElementById('name-screen').innerHTML = `<div style="text-align:center;padding:32px;max-width:300px"><div style="font-size:48px;margin-bottom:16px">🔒</div><h2 style="font-size:20px;margin-bottom:10px">HTTPS Required</h2><p style="opacity:.5;font-size:14px;line-height:1.6">Open via the ngrok HTTPS URL, not the local IP.</p></div>`
+  document.getElementById('status-overlay').className = 'show error'
+  document.getElementById('s-title').textContent = 'HTTPS Required'
+  document.getElementById('s-msg').textContent = 'Open via the ngrok HTTPS URL, not the local IP.'
   throw new Error('Not HTTPS')
 }
 
 // ── DOM ───────────────────────────────────────────────────────────────────────
-const nameScreen   = document.getElementById('name-screen')
 const statusOl     = document.getElementById('status-overlay')
 const sTitle       = document.getElementById('s-title')
 const sMsg         = document.getElementById('s-msg')
@@ -197,11 +215,15 @@ const container    = document.getElementById('container')
 const wsDot        = document.getElementById('ws-dot')
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let ws = null, playerName = ''
+let ws = null
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
   ws = new WebSocket(`${proto}//${location.host}`)
-  ws.onopen  = () => { wsDot.className = 'ok'; ws.send(JSON.stringify({ type: 'player_connect', playerId, desktopId })) }
+  ws.onopen = () => {
+    wsDot.className = 'ok'
+    ws.send(JSON.stringify({ type: 'player_connect', playerId, desktopId }))
+    ws.send(JSON.stringify({ type: 'set_name', name: playerName }))
+  }
   ws.onclose = () => { wsDot.className = 'err'; setTimeout(connectWS, 2500) }
   ws.onmessage = (e) => {
     let msg; try { msg = JSON.parse(e.data) } catch { return }
@@ -211,24 +233,14 @@ function connectWS() {
 connectWS()
 function wsSend(obj) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)) }
 
-// ── Name screen ───────────────────────────────────────────────────────────────
-const nameInput = document.getElementById('player-name-input')
-const nsError   = document.getElementById('ns-error')
-
-document.getElementById('play-btn').addEventListener('click', submitName)
-nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitName() })
-
-function submitName() {
-  const name = nameInput.value.trim()
-  if (!name) { nsError.textContent = 'Please enter your name'; nsError.classList.add('show'); return }
-  nsError.classList.remove('show')
-  playerName = name
-  wsSend({ type: 'set_name', name })
-  nameScreen.classList.add('hidden')
+// ── Tap to start (required user gesture for camera on iOS) ────────────────────
+const tapStart = document.getElementById('tap-start')
+tapStart.addEventListener('click', () => {
+  tapStart.style.display = 'none'
   startAR()
-}
+}, { once: true })
 
-// ── AR init (runs after name entered) ─────────────────────────────────────────
+// ── AR init ───────────────────────────────────────────────────────────────────
 async function startAR() {
   statusOl.classList.add('show')
   sMsg.textContent = 'Loading config…'
@@ -264,6 +276,7 @@ async function startAR() {
 
   // ── Build the bear toy ────────────────────────────────────────────────────
   const { toyGroup, btnDomes } = buildBearToy()
+  toyGroup.scale.setScalar(1.6)
   anchor.group.add(toyGroup)
 
   // ── Raycaster ─────────────────────────────────────────────────────────────
@@ -493,9 +506,9 @@ function buildBearToy() {
 
   // ── Pop buttons (4 × 3 grid inside recess) ───────────────────────────────
   const COLS = 4, ROWS = 3
-  const SX = 0.108, SY = 0.100
-  const rimGeo  = new THREE.CylinderGeometry(0.042, 0.042, 0.018, 16)
-  const domeGeo = new THREE.SphereGeometry(0.036, 14, 10, 0, Math.PI*2, 0, Math.PI/2)
+  const SX = 0.120, SY = 0.112
+  const rimGeo  = new THREE.CylinderGeometry(0.052, 0.052, 0.020, 16)
+  const domeGeo = new THREE.SphereGeometry(0.045, 14, 10, 0, Math.PI*2, 0, Math.PI/2)
   const btnDomes = []
 
   for (let row = 0; row < ROWS; row++) {

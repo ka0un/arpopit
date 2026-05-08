@@ -1,11 +1,35 @@
 {
-  "users": {
-    "kasun": {
-      "username": "kasun",
-      "passwordHash": "$2b$10$mrGNwWzl7FwNwNZtBr1IGuL2tkpCzrqM8WNm20e0Cu6WP5l8QBQyy"
-    }
-  },
   "leaderboard": [
+    {
+      "id": 1778152695890.0286,
+      "name": "Kasun",
+      "score": 420,
+      "ts": 1778152695890
+    },
+    {
+      "id": 1778235335314.9807,
+      "name": "Bear#AC1D",
+      "score": 410,
+      "ts": 1778235335314
+    },
+    {
+      "id": 1778231554119.1096,
+      "name": "Bear#DEE5",
+      "score": 290,
+      "ts": 1778231554119
+    },
+    {
+      "id": 1778231663323.9585,
+      "name": "Bear#DEE5",
+      "score": 220,
+      "ts": 1778231663323
+    },
+    {
+      "id": 1778232042284.4507,
+      "name": "Bear#DEE5",
+      "score": 160,
+      "ts": 1778232042284
+    },
     {
       "id": 1778151626186.2036,
       "username": "kasun",
@@ -17,6 +41,12 @@
       "username": "kasun",
       "score": 114,
       "ts": 1778151563382
+    },
+    {
+      "id": 1778231758844.2153,
+      "name": "Bear#DEE5",
+      "score": 70,
+      "ts": 1778231758844
     }
   ]
 }
