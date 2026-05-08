@@ -7,7 +7,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AR Bubble Pop — Leaderboard</title>
+  <title>BearPop AR — Leaderboard</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 
@@ -221,13 +221,27 @@
     }
     #conn-dot.ok  { background: #6bcb77; }
     #conn-dot.err { background: #ff6b6b; }
+
+    /* ── Attribution ─────────────────────────────── */
+    .attribution {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 8px;
+    }
+    .attribution a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      font-weight: 700;
+      transition: color 0.2s;
+    }
+    .attribution a:hover { color: #fff; }
   </style>
 </head>
 <body>
 
 <header>
   <div class="title-block">
-    <h1>AR Bubble Pop</h1>
+    <h1>BearPop AR</h1>
     <p>Scan the target image on your phone to play</p>
   </div>
   <div id="live-badge">
@@ -271,9 +285,14 @@
       <div class="how-step"><div class="num">5</div>Enter your name and submit your score</div>
     </div>
 
-    <div id="conn-status">
-      <div id="conn-dot"></div>
-      <span id="conn-label">Connecting…</span>
+    <div style="margin-top:auto">
+      <div class="attribution">
+        Designed and developed by <br><a href="https://kasun.hapangama.com" target="_blank">Kasun Hapangama</a>
+      </div>
+      <div id="conn-status">
+        <div id="conn-dot"></div>
+        <span id="conn-label">Connecting…</span>
+      </div>
     </div>
   </aside>
 </main>

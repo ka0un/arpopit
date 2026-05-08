@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AR Bubble Pop</title>
+  <title>BearPop AR</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:#1A0E08; color:#F0EBE0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; height:100vh; overflow:hidden; }
@@ -161,6 +161,23 @@
     .recent-entry .r-rank { font-size:12px; opacity:0.4; font-weight:700; }
     .recent-entry .r-name { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .recent-entry .r-score { font-size:15px; font-weight:800; color:#E8A090; }
+
+    /* ── Attribution ─────────────────────────────── */
+    .attribution {
+      position: absolute;
+      bottom: 30px;
+      left: 40px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 500;
+    }
+    .attribution a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      font-weight: 700;
+      transition: color 0.2s;
+    }
+    .attribution a:hover { color: #fff; }
   </style>
 </head>
 <body>
@@ -172,7 +189,7 @@
 <div id="desktop-screen">
   <div class="left-panel">
     <div class="top-row">
-      <div class="logo"><h1>AR Bubble Pop</h1><p>Scan · Point · Pop!</p></div>
+      <div class="logo"><h1>BearPop AR</h1><p>Scan · Point · Pop!</p></div>
       <div class="qr-block">
         <div id="qr-container"></div>
         <div class="qr-block-text"><strong>Scan to play</strong>Open on your phone</div>
@@ -182,6 +199,10 @@
     <div class="target-frame"><img id="target-img" src="" alt="Target"></div>
 
     <div class="player-badge" id="player-badge"><div class="dot"></div><span id="playing-name">Player</span> is playing</div>
+
+    <div class="attribution">
+      Designed and developed by <a href="https://kasun.hapangama.com" target="_blank">Kasun Hapangama</a>
+    </div>
   </div>
 
   <div class="right-panel">
