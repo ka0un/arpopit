@@ -6,11 +6,11 @@
   <title>AR Bubble Pop</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0a0a12; color:#fff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; height:100vh; overflow:hidden; }
+    body { background:#1A0E08; color:#F0EBE0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; height:100vh; overflow:hidden; }
 
     /* ── Mobile redirect ──────────────────────────── */
     #mobile-screen { display:none; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:16px; }
-    .spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,.15); border-top-color:#6bcb77; border-radius:50%; animation:spin .8s linear infinite; }
+    .spinner { width:40px; height:40px; border:3px solid rgba(240,235,224,.12); border-top-color:#C4846A; border-radius:50%; animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
 
     /* ── Desktop layout ───────────────────────────── */
@@ -19,73 +19,74 @@
     /* ── Left panel ───────────────────────────────── */
     .left-panel {
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:20px; padding:32px; border-right:1px solid rgba(255,255,255,.07);
+      gap:20px; padding:32px; border-right:1px solid rgba(196,132,106,.15);
     }
 
+    /* Top row: logo left, QR right */
+    .top-row { display:flex; align-items:center; justify-content:space-between; gap:20px; width:min(460px,100%); }
     .logo h1 {
-      font-size:28px; font-weight:900; text-align:center; letter-spacing:-1px;
-      background:linear-gradient(135deg,#6bcb77,#4d96ff);
+      font-size:24px; font-weight:900; letter-spacing:-0.5px;
+      background:linear-gradient(135deg,#E8A090,#C4846A);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
     }
+    .logo p { font-size:12px; color:rgba(240,235,224,.35); margin-top:3px; }
 
-    /* Target image — always visible, fills the panel */
-    .target-frame { border-radius:20px; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,.6); width:min(460px,calc(100% - 0px)); }
+    /* Target image */
+    .target-frame { border-radius:20px; overflow:hidden; box-shadow:0 24px 80px rgba(0,0,0,.7); width:min(460px,100%); }
     .target-frame img { width:100%; height:100%; object-fit:contain; display:block; }
 
-    /* Bottom row: QR left, player badge right */
-    .bottom-row { display:flex; align-items:center; justify-content:space-between; gap:16px; width:min(460px,100%); }
-    .qr-block { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:8px 12px; flex-shrink:0; }
-    #qr-container canvas, #qr-container img { display:block; border-radius:3px; background:#fff; padding:2px; }
-    .qr-block-text { font-size:11px; opacity:.5; line-height:1.4; }
-    .qr-block-text strong { display:block; font-size:12px; opacity:.9; color:#fff; margin-bottom:1px; }
+    .qr-block { display:flex; align-items:center; gap:10px; background:rgba(240,235,224,.05); border:1px solid rgba(196,132,106,.18); border-radius:14px; padding:10px 14px; flex-shrink:0; }
+    #qr-container canvas, #qr-container img { display:block; border-radius:4px; background:#fff; padding:3px; }
+    .qr-block-text { font-size:11px; color:rgba(240,235,224,.45); line-height:1.5; }
+    .qr-block-text strong { display:block; font-size:12px; color:#F0EBE0; opacity:.85; margin-bottom:2px; }
 
     .player-badge {
       display:flex; align-items:center; gap:8px;
-      background:rgba(109,203,119,.12); border:1px solid rgba(109,203,119,.25);
-      border-radius:40px; padding:8px 16px; font-weight:700; font-size:14px;
+      background:rgba(196,132,106,.12); border:1px solid rgba(196,132,106,.28);
+      border-radius:40px; padding:8px 18px; font-weight:700; font-size:14px; color:#F0EBE0;
       opacity:0; transition:opacity .4s;
     }
     .player-badge.show { opacity:1; }
-    .player-badge .dot { width:8px; height:8px; border-radius:50%; background:#6bcb77; flex-shrink:0; animation:pulse 1.4s ease-in-out infinite; }
+    .player-badge .dot { width:8px; height:8px; border-radius:50%; background:#C4846A; flex-shrink:0; animation:pulse 1.4s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
 
     /* ── Right panel ───────────────────────────────── */
-    .right-panel { display:flex; flex-direction:column; overflow:hidden; }
-    .board-header { padding:24px 32px 18px; border-bottom:1px solid rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
-    .board-header h2 { font-size:18px; font-weight:800; opacity:.8; }
+    .right-panel { display:flex; flex-direction:column; overflow:hidden; background:#160B06; }
+    .board-header { padding:24px 32px 18px; border-bottom:1px solid rgba(196,132,106,.15); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .board-header h2 { font-size:18px; font-weight:800; color:#F0EBE0; opacity:.85; }
 
-    #live-badge { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:40px; padding:7px 16px; font-size:12px; font-weight:700; opacity:0; transition:opacity .4s; }
+    #live-badge { display:flex; align-items:center; gap:8px; background:rgba(196,132,106,.10); border:1px solid rgba(196,132,106,.22); border-radius:40px; padding:7px 16px; font-size:12px; font-weight:700; opacity:0; transition:opacity .4s; }
     #live-badge.show { opacity:1; }
-    #live-badge .dot { width:8px; height:8px; border-radius:50%; background:#ff6b6b; animation:pulse 1.4s ease-in-out infinite; }
-    #live-name { color:#ffd93d; }
-    #live-pts  { color:#6bcb77; }
+    #live-badge .dot { width:8px; height:8px; border-radius:50%; background:#C4846A; animation:pulse 1.4s ease-in-out infinite; }
+    #live-name { color:#E8A090; }
+    #live-pts  { color:#C4846A; }
 
     #board-wrap { flex:1; padding:16px 32px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
 
-    .entry { display:grid; grid-template-columns:56px 1fr auto; align-items:center; gap:12px; padding:12px 18px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06); animation:slide-in .35s ease both; }
+    .entry { display:grid; grid-template-columns:56px 1fr auto; align-items:center; gap:12px; padding:12px 18px; border-radius:12px; background:rgba(240,235,224,.04); border:1px solid rgba(196,132,106,.10); animation:slide-in .35s ease both; color:#F0EBE0; }
     @keyframes slide-in { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:translateX(0)} }
     .entry.flash { animation:flash-in .5s ease; }
-    @keyframes flash-in { 0%,100%{background:rgba(255,255,255,.04)} 50%{background:rgba(109,203,119,.18)} }
-    .entry.rank-1 { background:rgba(255,215,0,.08);  border-color:rgba(255,215,0,.2);  }
-    .entry.rank-2 { background:rgba(192,192,192,.06); border-color:rgba(192,192,192,.15); }
-    .entry.rank-3 { background:rgba(205,127,50,.06);  border-color:rgba(205,127,50,.15); }
+    @keyframes flash-in { 0%,100%{background:rgba(240,235,224,.04)} 50%{background:rgba(196,132,106,.20)} }
+    .entry.rank-1 { background:rgba(232,160,144,.08); border-color:rgba(232,160,144,.25); }
+    .entry.rank-2 { background:rgba(191,164,158,.07); border-color:rgba(191,164,158,.20); }
+    .entry.rank-3 { background:rgba(139,94,60,.08);   border-color:rgba(139,94,60,.22);   }
     .rank-badge { font-size:20px; font-weight:900; text-align:center; }
-    .rank-1 .rank-badge { color:#ffd700; }
-    .rank-2 .rank-badge { color:#c0c0c0; }
-    .rank-3 .rank-badge { color:#cd7f32; }
+    .rank-1 .rank-badge { color:#E8A090; }
+    .rank-2 .rank-badge { color:#BFA49E; }
+    .rank-3 .rank-badge { color:#8B5E3C; }
     .entry-name  { font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .entry-score { font-size:20px; font-weight:900; color:#6bcb77; }
-    .rank-1 .entry-score { color:#ffd700; }
-    .empty-state { text-align:center; opacity:.3; font-size:15px; margin-top:40px; }
+    .entry-score { font-size:20px; font-weight:900; color:#C4846A; }
+    .rank-1 .entry-score { color:#E8A090; }
+    .empty-state { text-align:center; color:rgba(240,235,224,.25); font-size:15px; margin-top:40px; }
 
-    .board-footer { padding:12px 32px; border-top:1px solid rgba(255,255,255,.07); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; font-size:11px; }
+    .board-footer { padding:12px 32px; border-top:1px solid rgba(196,132,106,.15); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; font-size:11px; }
     .legend { display:flex; gap:12px; }
-    .legend-item { display:flex; align-items:center; gap:5px; opacity:.4; }
+    .legend-item { display:flex; align-items:center; gap:5px; color:rgba(240,235,224,.35); }
     .legend-dot { width:9px; height:9px; border-radius:50%; }
-    #conn-status { display:flex; align-items:center; gap:6px; opacity:.3; }
-    #conn-dot { width:7px; height:7px; border-radius:50%; background:#888; transition:background .4s; }
-    #conn-dot.ok { background:#6bcb77; }
-    #conn-dot.err { background:#ff6b6b; }
+    #conn-status { display:flex; align-items:center; gap:6px; color:rgba(240,235,224,.3); }
+    #conn-dot { width:7px; height:7px; border-radius:50%; background:#555; transition:background .4s; }
+    #conn-dot.ok  { background:#8B5E3C; }
+    #conn-dot.err { background:#E85D5D; }
   </style>
 </head>
 <body>
@@ -94,17 +95,17 @@
 
 <div id="desktop-screen">
   <div class="left-panel">
-    <div class="logo"><h1>AR Bubble Pop</h1></div>
+    <div class="top-row">
+      <div class="logo"><h1>AR Bubble Pop</h1><p>Scan · Point · Pop!</p></div>
+      <div class="qr-block">
+        <div id="qr-container"></div>
+        <div class="qr-block-text"><strong>Scan to play</strong>Open on your phone</div>
+      </div>
+    </div>
 
     <div class="target-frame"><img id="target-img" src="" alt="Target"></div>
 
-    <div class="bottom-row">
-      <div class="qr-block">
-        <div id="qr-container"></div>
-        <div class="qr-block-text"><strong>Scan to play</strong>Point at the image above</div>
-      </div>
-      <div class="player-badge" id="player-badge"><div class="dot"></div><span id="playing-name">Player</span> is playing</div>
-    </div>
+    <div class="player-badge" id="player-badge"><div class="dot"></div><span id="playing-name">Player</span> is playing</div>
   </div>
 
   <div class="right-panel">
@@ -115,11 +116,8 @@
     <div id="board-wrap"><div class="empty-state">No scores yet — be the first!</div></div>
     <div class="board-footer">
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#bbbbbb"></div>+1</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#4d96ff"></div>+2</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#6bcb77"></div>+3</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ffd93d"></div>+5</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>+10</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#44FF72"></div>+10 pts</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#DD33FF"></div>💀 game over</div>
       </div>
       <div id="conn-status"><div id="conn-dot"></div><span id="conn-label">Connecting…</span></div>
     </div>
@@ -138,101 +136,35 @@ if (isMobile) {
   document.getElementById('desktop-screen').style.display = 'grid'
   ;(async () => {
 
-  // ── Config + IDs ───────────────────────────────────────────────
-  const cfg = await fetch('/config.json').then(r => r.json()).catch(() => ({}))
-  const baseUrl = (cfg.publicUrl || location.origin).replace(/\/$/, '')
-
-  // Stable desktopId per browser tab (regenerates on new tab)
-  let desktopId = sessionStorage.getItem('desktopId')
-  if (!desktopId) { desktopId = crypto.randomUUID(); sessionStorage.setItem('desktopId', desktopId) }
-
-  const phoneUrl     = `${baseUrl}/phone.html?desk=${desktopId}`
-  // Fallback to /targets.webp if config is missing or fetch failed
-  const targetImgUrl = cfg.targetImageUrl || '/targets.webp'
-
-  const targetImgEl = document.getElementById('target-img')
-  targetImgEl.src = targetImgUrl
-  targetImgEl.onerror = () => console.warn('[desktop] target image failed to load:', targetImgUrl)
-
-  // ── QR code ────────────────────────────────────────────────────
-  new QRCode(document.getElementById('qr-container'), {
-    text: phoneUrl, width: 80, height: 80,
-    colorDark: '#0a0a12', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L,
-  })
-
-  // ── Player badge ───────────────────────────────────────────────
+  // ── DOM refs ────────────────────────────────────────────────────
+  const wrap        = document.getElementById('board-wrap')
+  const liveBadge   = document.getElementById('live-badge')
+  const liveName    = document.getElementById('live-name')
+  const livePts     = document.getElementById('live-pts')
+  const connDot     = document.getElementById('conn-dot')
+  const connLabel   = document.getElementById('conn-label')
   const playerBadge = document.getElementById('player-badge')
   const playingName = document.getElementById('playing-name')
 
-  function showPlayer(name) {
-    if (name) playingName.textContent = name
-    playerBadge.classList.add('show')
-  }
-
-  // ── Leaderboard ─────────────────────────────────────────────────
-  const wrap      = document.getElementById('board-wrap')
-  const liveBadge = document.getElementById('live-badge')
-  const liveName  = document.getElementById('live-name')
-  const livePts   = document.getElementById('live-pts')
-  const connDot   = document.getElementById('conn-dot')
-  const connLabel = document.getElementById('conn-label')
-  let entries = [], prevIds = [], liveTimer = null
-
-  try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch {}
-  if (entries.length) renderBoard(entries, false)
-
-  // ── WebSocket ────────────────────────────────────────────────────
-  let ws = null
-  function connect() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    ws = new WebSocket(`${proto}//${location.host}`)
-
-    ws.onopen = () => {
-      connDot.className = 'ok'; connLabel.textContent = 'Connected'
-      ws.send(JSON.stringify({ type: 'desk_connect', desktopId }))
-    }
-    ws.onclose = () => { connDot.className = 'err'; connLabel.textContent = 'Reconnecting…'; setTimeout(connect, 2500) }
-
-    ws.onmessage = (e) => {
-      let msg; try { msg = JSON.parse(e.data) } catch { return }
-      if (msg.type !== 'leaderboard') console.log('[desktop ws]', msg)
-
-      if (msg.type === 'leaderboard') {
-        entries = msg.entries || []
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)) } catch {}
-        renderBoard(entries, true)
-      }
-
-      if (msg.type === 'player_joined') {
-        showPlayer('…')
-      }
-
-      if (msg.type === 'player_named') {
-        showPlayer(msg.name)
-      }
-
-      if (msg.type === 'live_score') {
-        showLive(msg.name, msg.score)
-      }
-    }
-  }
-  connect()
-
-  // ── Render helpers ───────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────
   const MEDALS = ['🥇','🥈','🥉']
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
+  let entries = [], prevIds = [], liveTimer = null
+
   function renderBoard(list, animate) {
     if (!list.length) { wrap.innerHTML = '<div class="empty-state">No scores yet — be the first!</div>'; prevIds = []; return }
-    wrap.innerHTML = list.slice(0, 10).map((e, i) => {
-      const isNew = animate && !prevIds.includes(e.id)
-      return `<div class="entry rank-${i+1} ${isNew ? 'flash' : ''}">
-        <div class="rank-badge">${i < 3 ? MEDALS[i] : '#'+(i+1)}</div>
-        <div class="entry-name">${esc(e.name)}</div>
-        <div class="entry-score">${e.score.toLocaleString()}</div>
-      </div>`
-    }).join('')
-    prevIds = list.map(e => e.id)
+    try {
+      wrap.innerHTML = list.slice(0, 10).map((e, i) => {
+        const isNew = animate && !prevIds.includes(e.id)
+        return `<div class="entry rank-${i+1} ${isNew ? 'flash' : ''}">
+          <div class="rank-badge">${i < 3 ? MEDALS[i] : '#'+(i+1)}</div>
+          <div class="entry-name">${esc(e.name)}</div>
+          <div class="entry-score">${e.score.toLocaleString()}</div>
+        </div>`
+      }).join('')
+      prevIds = list.map(e => e.id)
+    } catch (err) { console.warn('[board] render error', err) }
   }
 
   function showLive(name, score) {
@@ -241,6 +173,76 @@ if (isMobile) {
     clearTimeout(liveTimer)
     liveTimer = setTimeout(() => liveBadge.classList.remove('show'), 4000)
   }
+
+  function showPlayer(name) {
+    if (name) playingName.textContent = name
+    playerBadge.classList.add('show')
+  }
+
+  // ── Restore from cache immediately (no await) ───────────────────
+  try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch {}
+  if (entries.length) renderBoard(entries, false)
+
+  // ── desktopId (no await) ────────────────────────────────────────
+  let desktopId = sessionStorage.getItem('desktopId')
+  if (!desktopId) { desktopId = crypto.randomUUID(); sessionStorage.setItem('desktopId', desktopId) }
+
+  // ── WebSocket (no await — connects immediately on page load) ────
+  let ws = null, reconnectTimer = null
+
+  function connect() {
+    if (ws && ws.readyState < 2) return
+    clearTimeout(reconnectTimer)
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    ws = new WebSocket(`${proto}//${location.host}`)
+
+    ws.onopen = () => {
+      connDot.className = 'ok'; connLabel.textContent = 'Connected'
+      ws.send(JSON.stringify({ type: 'desk_connect', desktopId }))
+    }
+    ws.onerror = () => ws.close()
+    ws.onclose = () => {
+      connDot.className = 'err'; connLabel.textContent = 'Reconnecting…'
+      reconnectTimer = setTimeout(connect, 2500)
+    }
+    ws.onmessage = (e) => {
+      let msg; try { msg = JSON.parse(e.data) } catch { return }
+      if (msg.type !== 'leaderboard') console.log('[desktop ws]', msg)
+
+      if (msg.type === 'leaderboard') {
+        const incoming = msg.entries || []
+        if (incoming.length > 0 || entries.length === 0) {
+          entries = incoming
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)) } catch {}
+        }
+        renderBoard(entries, true)
+      }
+      if (msg.type === 'player_joined') showPlayer('…')
+      if (msg.type === 'player_named')  showPlayer(msg.name)
+      if (msg.type === 'live_score')    showLive(msg.name, msg.score)
+    }
+  }
+  connect()
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && (!ws || ws.readyState > 1)) connect()
+  })
+
+  // ── Config fetch (only needed for QR + target image, runs last) ─
+  // This await no longer blocks the board or WS — they're already running above.
+  const cfg = await fetch('/config.json').then(r => r.json()).catch(() => ({}))
+  const baseUrl      = (cfg.publicUrl || location.origin).replace(/\/$/, '')
+  const phoneUrl     = `${baseUrl}/phone.html?desk=${desktopId}`
+  const targetImgUrl = cfg.targetImageUrl || '/targets.webp'
+
+  const targetImgEl = document.getElementById('target-img')
+  targetImgEl.src = targetImgUrl
+  targetImgEl.onerror = () => console.warn('[desktop] target image failed to load:', targetImgUrl)
+
+  new QRCode(document.getElementById('qr-container'), {
+    text: phoneUrl, width: 110, height: 110,
+    colorDark: '#1A0E08', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M,
+  })
 
   })()
 }

@@ -215,8 +215,10 @@ const container    = document.getElementById('container')
 const wsDot        = document.getElementById('ws-dot')
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let ws = null
+let ws = null, wsReconnectTimer = null
 function connectWS() {
+  if (ws && ws.readyState < 2) return
+  clearTimeout(wsReconnectTimer)
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
   ws = new WebSocket(`${proto}//${location.host}`)
   ws.onopen = () => {
@@ -224,70 +226,78 @@ function connectWS() {
     ws.send(JSON.stringify({ type: 'player_connect', playerId, desktopId }))
     ws.send(JSON.stringify({ type: 'set_name', name: playerName }))
   }
-  ws.onclose = () => { wsDot.className = 'err'; setTimeout(connectWS, 2500) }
+  ws.onerror = () => ws.close()
+  ws.onclose = () => { wsDot.className = 'err'; wsReconnectTimer = setTimeout(connectWS, 2500) }
   ws.onmessage = (e) => {
     let msg; try { msg = JSON.parse(e.data) } catch { return }
     if (msg.type === 'score_saved') goRank.textContent = msg.rank === 1 ? '🥇 New high score!' : `Rank #${msg.rank}`
   }
 }
 connectWS()
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && (!ws || ws.readyState > 1)) connectWS()
+})
 function wsSend(obj) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)) }
 
 // ── Audio engine (must create in user gesture) ────────────────────────────────
 let audioCtx = null
 
+function ac() {
+  if (!audioCtx) return null
+  if (audioCtx.state === 'suspended') audioCtx.resume()
+  return audioCtx
+}
+
 function playPop() {
-  if (!audioCtx) return
-  const t = audioCtx.currentTime
-  const osc = audioCtx.createOscillator(), g = audioCtx.createGain()
-  osc.connect(g); g.connect(audioCtx.destination)
+  const ctx = ac(); if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator(), g = ctx.createGain()
+  osc.connect(g); g.connect(ctx.destination)
   osc.type = 'sine'
   osc.frequency.setValueAtTime(1000, t)
   osc.frequency.exponentialRampToValueAtTime(280, t + 0.13)
-  g.gain.setValueAtTime(0.28, t)
+  g.gain.setValueAtTime(0.30, t)
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.16)
   osc.start(t); osc.stop(t + 0.17)
 }
 
 function playBomb() {
-  if (!audioCtx) return
-  const t = audioCtx.currentTime
-  // low rumble
-  const o1 = audioCtx.createOscillator(), g1 = audioCtx.createGain()
-  o1.connect(g1); g1.connect(audioCtx.destination)
+  const ctx = ac(); if (!ctx) return
+  const t = ctx.currentTime
+  const o1 = ctx.createOscillator(), g1 = ctx.createGain()
+  o1.connect(g1); g1.connect(ctx.destination)
   o1.type = 'sawtooth'
   o1.frequency.setValueAtTime(160, t)
   o1.frequency.exponentialRampToValueAtTime(35, t + 0.55)
-  g1.gain.setValueAtTime(0.45, t)
+  g1.gain.setValueAtTime(0.5, t)
   g1.gain.exponentialRampToValueAtTime(0.001, t + 0.55)
   o1.start(t); o1.stop(t + 0.56)
-  // high zap
-  const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain()
-  o2.connect(g2); g2.connect(audioCtx.destination)
+  const o2 = ctx.createOscillator(), g2 = ctx.createGain()
+  o2.connect(g2); g2.connect(ctx.destination)
   o2.type = 'square'
   o2.frequency.setValueAtTime(440, t)
   o2.frequency.exponentialRampToValueAtTime(60, t + 0.3)
-  g2.gain.setValueAtTime(0.18, t)
+  g2.gain.setValueAtTime(0.20, t)
   g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3)
   o2.start(t); o2.stop(t + 0.31)
 }
 
 function playPing() {
-  if (!audioCtx) return
-  const t = audioCtx.currentTime
-  const osc = audioCtx.createOscillator(), g = audioCtx.createGain()
-  osc.connect(g); g.connect(audioCtx.destination)
+  const ctx = ac(); if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator(), g = ctx.createGain()
+  osc.connect(g); g.connect(ctx.destination)
   osc.type = 'sine'; osc.frequency.value = 1400
-  g.gain.setValueAtTime(0.06, t)
+  g.gain.setValueAtTime(0.07, t)
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.09)
   osc.start(t); osc.stop(t + 0.10)
 }
 
-function playBeep(freq, dur = 0.11, vol = 0.18) {
-  if (!audioCtx) return
-  const t = audioCtx.currentTime
-  const osc = audioCtx.createOscillator(), g = audioCtx.createGain()
-  osc.connect(g); g.connect(audioCtx.destination)
+function playBeep(freq, dur = 0.11, vol = 0.20) {
+  const ctx = ac(); if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator(), g = ctx.createGain()
+  osc.connect(g); g.connect(ctx.destination)
   osc.type = 'sine'; osc.frequency.value = freq
   g.gain.setValueAtTime(vol, t)
   g.gain.exponentialRampToValueAtTime(0.001, t + dur)
@@ -295,28 +305,28 @@ function playBeep(freq, dur = 0.11, vol = 0.18) {
 }
 
 function playGo() {
-  if (!audioCtx) return
+  const ctx = ac(); if (!ctx) return
   ;[0, 4, 7, 12].forEach((semi, i) => {
     const freq = 440 * Math.pow(2, semi / 12)
-    const t = audioCtx.currentTime + i * 0.07
-    const osc = audioCtx.createOscillator(), g = audioCtx.createGain()
-    osc.connect(g); g.connect(audioCtx.destination)
+    const t = ctx.currentTime + i * 0.07
+    const osc = ctx.createOscillator(), g = ctx.createGain()
+    osc.connect(g); g.connect(ctx.destination)
     osc.type = 'sine'; osc.frequency.value = freq
-    g.gain.setValueAtTime(0.22, t)
+    g.gain.setValueAtTime(0.24, t)
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
     osc.start(t); osc.stop(t + 0.23)
   })
 }
 
 function playSuccess() {
-  if (!audioCtx) return
+  const ctx = ac(); if (!ctx) return
   ;[0, 4, 7, 12, 16].forEach((semi, i) => {
     const freq = 523.25 * Math.pow(2, semi / 12)
-    const t = audioCtx.currentTime + i * 0.09
-    const osc = audioCtx.createOscillator(), g = audioCtx.createGain()
-    osc.connect(g); g.connect(audioCtx.destination)
+    const t = ctx.currentTime + i * 0.09
+    const osc = ctx.createOscillator(), g = ctx.createGain()
+    osc.connect(g); g.connect(ctx.destination)
     osc.type = 'sine'; osc.frequency.value = freq
-    g.gain.setValueAtTime(0.20, t)
+    g.gain.setValueAtTime(0.22, t)
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.28)
     osc.start(t); osc.stop(t + 0.29)
   })
@@ -327,6 +337,13 @@ const tapStart = document.getElementById('tap-start')
 tapStart.addEventListener('click', () => {
   tapStart.style.display = 'none'
   audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  // iOS requires a real audio node to be played synchronously in the gesture
+  // to unlock the context — otherwise resume() later won't work
+  const unlock = audioCtx.createBuffer(1, 1, 22050)
+  const node = audioCtx.createBufferSource()
+  node.buffer = unlock
+  node.connect(audioCtx.destination)
+  node.start(0)
   startAR()
 }, { once: true })
 
