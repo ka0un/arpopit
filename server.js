@@ -161,11 +161,25 @@ wss.on('connection', (ws) => {
             patched = true
           }
         }
+        for (const a of recentAttempts) {
+          if ((a.playerId && a.playerId === player.playerId) || (!a.playerId && a.name === oldName)) {
+            a.name = newName
+            patched = true
+          }
+        }
         if (patched) saveData()
         send(ws, { type: 'name_ok', name: newName })
         const deskWs = desks.get(player.desktopId)
         send(deskWs, { type: 'player_named', name: newName })
         broadcastLeaderboard()
+        
+        const historyPayload = JSON.stringify({ type: 'recent_attempts_history', attempts: recentAttempts })
+        wss.clients.forEach(c => {
+          if (c.readyState === WebSocket.OPEN && (c._role === 'desktop' || c._role === 'leaderboard')) {
+            c.send(historyPayload)
+          }
+        })
+        
         console.log(`[rename] "${oldName}" → "${newName}"`)
         break
       }
@@ -201,7 +215,7 @@ wss.on('connection', (ws) => {
         leaderboard.sort((a, b) => b.score - a.score)
         leaderboard = leaderboard.slice(0, 100)
         
-        recentAttempts.unshift({ name: player.name, score, rank: leaderboard.findIndex(e => e.id === entryId) + 1 })
+        recentAttempts.unshift({ playerId: player.playerId, name: player.name, score, rank: leaderboard.findIndex(e => e.id === entryId) + 1 })
         if (recentAttempts.length > 5) recentAttempts.pop()
         
         saveData()
