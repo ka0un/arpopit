@@ -275,7 +275,7 @@ function connectWS() {
       if (rank <= 10) {
         progressContainer.style.display = 'none'
         playTada()
-        editBtn.style.display = 'inline-block'
+        editBtn.style.display = playerName.startsWith('Bear#') ? 'inline-block' : 'none'
         // Only auto-prompt if still using auto-generated name
         if (playerName.startsWith('Bear#')) {
           const nameForm  = document.getElementById('go-name-form')
@@ -654,6 +654,7 @@ async function startAR() {
     document.getElementById('go-name-display').textContent = newName
     document.getElementById('go-name-form').style.display = 'none'
     goRank.textContent = '…'
+    document.getElementById('go-name-edit-btn').style.display = 'none'
   })
 
   document.getElementById('again-btn').addEventListener('click', () => {
