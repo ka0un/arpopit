@@ -58,12 +58,21 @@
     #countdown-overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(26,14,8,.55); color:#F0EBE0; font-size:130px; font-weight:900; z-index:200; }
 
     /* ── Game over ────────────────────────────────── */
-    #gameover { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; background:rgba(20,10,4,.92); backdrop-filter:blur(10px); color:#F0EBE0; gap:18px; z-index:300; padding:24px; }
+    #gameover { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; background:rgba(20,10,4,.92); backdrop-filter:blur(10px); color:#F0EBE0; gap:16px; z-index:300; padding:24px; }
     #gameover h2 { font-size:36px; font-weight:900; }
     #go-score { font-size:90px; font-weight:900; color:#E8A090; line-height:1; transition:color .3s; }
     #go-rank  { font-size:18px; opacity:.6; min-height:26px; }
+    #go-name-row { display:flex; align-items:center; gap:10px; font-size:14px; opacity:.55; }
+    #go-name-edit-btn { background:none; border:1px solid rgba(196,132,106,.35); color:#C4846A; font-size:12px; font-weight:700; padding:4px 10px; border-radius:8px; cursor:pointer; }
+    #go-name-form { display:none; flex-direction:column; align-items:center; gap:10px; width:100%; max-width:280px; }
+    #go-name-form p { font-size:13px; opacity:.5; text-align:center; }
+    #go-name-input { width:100%; padding:12px 16px; border-radius:12px; border:1.5px solid rgba(196,132,106,.4); background:rgba(240,235,224,.07); color:#F0EBE0; font-size:17px; font-weight:700; text-align:center; outline:none; }
+    #go-name-input:focus { border-color:#C4846A; }
+    #go-name-save-btn { background:#C4846A; color:#1A0E08; font-size:15px; font-weight:800; padding:11px 32px; border:none; border-radius:12px; cursor:pointer; width:100%; }
     .go-btn { font-size:17px; font-weight:700; padding:14px 40px; border:none; border-radius:12px; cursor:pointer; pointer-events:all; }
     #again-btn { background:#8B5E3C; color:#F0EBE0; }
+    /* ── Mute warning ─────────────────────────────── */
+    #mute-warning { position:fixed; top:12px; left:50%; transform:translateX(-50%); background:rgba(26,14,8,.95); border:1px solid rgba(196,132,106,.3); color:#F0EBE0; font-size:13px; font-weight:600; padding:10px 18px; border-radius:20px; z-index:700; white-space:nowrap; display:none; gap:8px; align-items:center; }
 
     /* ── Float label ──────────────────────────────── */
     .float-label { position:fixed; font-size:32px; font-weight:900; pointer-events:none; z-index:150; transform:translateX(-50%); animation:float-up .9s ease-out forwards; }
@@ -132,10 +141,20 @@
   <button id="hint-close">✕</button>
 </div>
 <div id="countdown-overlay"></div>
+<div id="mute-warning">🔇 No sound? Flip the ring/silent switch on your iPhone</div>
 <div id="gameover">
   <h2>Time's Up!</h2>
   <div id="go-score">0</div>
   <div id="go-rank"></div>
+  <div id="go-name-row">
+    Playing as <strong id="go-name-display"></strong>
+    <button id="go-name-edit-btn">✏️ Change</button>
+  </div>
+  <div id="go-name-form">
+    <p>Update your name on the leaderboard</p>
+    <input id="go-name-input" type="text" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="go-name-save-btn">Save Name</button>
+  </div>
   <button class="go-btn" id="again-btn">Play Again</button>
 </div>
 <div id="ws-dot"></div>
@@ -189,7 +208,7 @@ import { MindARThree } from '/node_modules/mind-ar/dist/mindar-image-three.prod.
 const desktopId = new URLSearchParams(location.search).get('desk') || ''
 let playerId = sessionStorage.getItem('playerId')
 if (!playerId) { playerId = crypto.randomUUID(); sessionStorage.setItem('playerId', playerId) }
-const playerName = 'Bear#' + playerId.replace(/-/g,'').slice(0, 4).toUpperCase()
+let playerName = 'Bear#' + playerId.replace(/-/g,'').slice(0, 4).toUpperCase()
 
 // ── HTTPS guard ───────────────────────────────────────────────────────────────
 if (location.protocol !== 'https:' && !['localhost','127.0.0.1'].includes(location.hostname)) {
@@ -273,20 +292,23 @@ function initAudio() {
     success: new Howl({ src: ['/sounds/success.wav'], volume: 0.8 }),
   }
 
-  // Play ping immediately inside the user gesture to unlock Howler on iOS
-  SFX.ping.once('load', () => {
+  const onPingReady = () => {
     SFX.ping.play()
     setAudioStatus('🔊 Audio ready')
     setTimeout(() => { const el = document.getElementById('audio-status'); if (el) el.style.display = 'none' }, 2000)
-  })
-  SFX.ping.once('loaderror', () => setAudioStatus('⚠️ Sound files failed — check server & refresh'))
-
-  // If already loaded (cached), play immediately
-  if (SFX.ping.state() === 'loaded') {
-    SFX.ping.play()
-    setAudioStatus('🔊 Audio ready')
-    setTimeout(() => { const el = document.getElementById('audio-status'); if (el) el.style.display = 'none' }, 2000)
+    // Show mute warning on iOS after a short delay — if they can't hear the ping,
+    // the silent switch is on (no JS API can detect this, so we just remind them)
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      setTimeout(() => {
+        const w = document.getElementById('mute-warning')
+        if (w) { w.style.display = 'flex'; setTimeout(() => { w.style.display = 'none' }, 5000) }
+      }, 800)
+    }
   }
+
+  SFX.ping.once('load', onPingReady)
+  SFX.ping.once('loaderror', () => setAudioStatus('⚠️ Sound files failed — check server & refresh'))
+  if (SFX.ping.state() === 'loaded') onPingReady()
 }
 
 function playPop()     { SFX?.pop.play() }
@@ -485,15 +507,47 @@ async function startAR() {
     goScore.style.color = reason === 'bomb' ? '#E85D5D' : '#E8A090'
     gameoverEl.querySelector('h2').textContent = reason === 'bomb' ? 'Bomb Hit! 💀' : 'Time\'s Up!'
     goRank.textContent = '…'
+    // Show current name; if still auto-generated, expand name form immediately
+    document.getElementById('go-name-display').textContent = playerName
+    const nameForm = document.getElementById('go-name-form')
+    const nameInput = document.getElementById('go-name-input')
+    if (playerName.startsWith('Bear#')) {
+      nameForm.style.display = 'flex'
+      nameInput.value = ''
+      nameInput.placeholder = 'Enter your name…'
+    } else {
+      nameForm.style.display = 'none'
+      nameInput.value = playerName
+    }
     gameoverEl.style.display = 'flex'
     if (reason === 'timer') playSuccess()
     wsSend({ type: 'submit_score', score })
   }
 
+  // Name change on game over
+  document.getElementById('go-name-edit-btn').addEventListener('click', () => {
+    const nameForm = document.getElementById('go-name-form')
+    const nameInput = document.getElementById('go-name-input')
+    nameForm.style.display = nameForm.style.display === 'flex' ? 'none' : 'flex'
+    if (nameForm.style.display === 'flex') { nameInput.value = playerName.startsWith('Bear#') ? '' : playerName; nameInput.focus() }
+  })
+
+  document.getElementById('go-name-save-btn').addEventListener('click', () => {
+    const nameInput = document.getElementById('go-name-input')
+    const newName = nameInput.value.trim().slice(0, 20)
+    if (!newName) return
+    wsSend({ type: 'rename_player', name: newName })
+    playerName = newName
+    document.getElementById('go-name-display').textContent = newName
+    document.getElementById('go-name-form').style.display = 'none'
+    goRank.textContent = '…'
+  })
+
   document.getElementById('again-btn').addEventListener('click', () => {
     gameoverEl.style.display = 'none'
     gameoverEl.querySelector('h2').textContent = 'Time\'s Up!'
     goScore.style.color = '#E8A090'
+    document.getElementById('go-name-form').style.display = 'none'
     btnStates.fill('off')
     gameState = 'WAITING'; score = 0; timeLeft = GAME_DURATION
     updateHUD()
@@ -560,7 +614,7 @@ function buildBearToy() {
   const g = new THREE.Group()
 
   // Materials
-  const mBody     = new THREE.MeshLambertMaterial({ color: 0xF0EBE0 })
+  const mBody     = new THREE.MeshLambertMaterial({ color: 0xF0EBE0, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 })
   const mRecess   = new THREE.MeshLambertMaterial({ color: 0xBFA49E })
   const mBtnRim   = new THREE.MeshLambertMaterial({ color: 0xB8978F })
   const mBear     = new THREE.MeshLambertMaterial({ color: 0x8B5E3C })
@@ -604,13 +658,13 @@ function buildBearToy() {
 
       const rim = new THREE.Mesh(rimGeo, mBtnRim)
       rim.rotation.x = Math.PI / 2
-      rim.position.set(x, y, 0.142)
+      rim.position.set(x, y, 0.156)
       g.add(rim)
 
       const mat  = new THREE.MeshLambertMaterial({ color: 0x9E8478, emissive: 0x000000 })
       const dome = new THREE.Mesh(domeGeo, mat)
       dome.rotation.x = Math.PI / 2
-      dome.position.set(x, y, 0.148)
+      dome.position.set(x, y, 0.163)
       g.add(dome)
       btnDomes.push(dome)
     }
