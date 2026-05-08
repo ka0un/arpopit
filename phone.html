@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>AR Bubble Pop</title>
+<script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body { background:#1A0E08; color:#F0EBE0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow:hidden; touch-action:none; }
@@ -239,113 +240,45 @@ document.addEventListener('visibilitychange', () => {
 })
 function wsSend(obj) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)) }
 
-// ── Audio engine (must create in user gesture) ────────────────────────────────
-let audioCtx = null
+// ── Audio engine (Howler.js) ──────────────────────────────────────────────────
+// Howler handles iOS AudioContext unlock automatically.
+let SFX = null
 
-function ac() {
-  if (!audioCtx) return null
-  if (audioCtx.state === 'suspended') audioCtx.resume()
-  return audioCtx
+function initAudio() {
+  if (SFX) return
+  SFX = {
+    pop:     new Howl({ src: ['/sounds/pop.wav'],     volume: 0.8 }),
+    ping:    new Howl({ src: ['/sounds/ping.wav'],    volume: 0.6 }),
+    bomb:    new Howl({ src: ['/sounds/bomb.wav'],    volume: 0.9 }),
+    beep660: new Howl({ src: ['/sounds/beep660.wav'], volume: 0.7 }),
+    beep880: new Howl({ src: ['/sounds/beep880.wav'], volume: 0.5 }),
+    go:      new Howl({ src: ['/sounds/go.wav'],      volume: 0.8 }),
+    success: new Howl({ src: ['/sounds/success.wav'], volume: 0.8 }),
+  }
+  // Unlock Howler immediately inside the user gesture by playing a silent ping
+  SFX.ping.once('end', () => {})
+  SFX.ping.play()
 }
 
-function playPop() {
-  const ctx = ac(); if (!ctx) return
-  const t = ctx.currentTime
-  const osc = ctx.createOscillator(), g = ctx.createGain()
-  osc.connect(g); g.connect(ctx.destination)
-  osc.type = 'sine'
-  osc.frequency.setValueAtTime(1000, t)
-  osc.frequency.exponentialRampToValueAtTime(280, t + 0.13)
-  g.gain.setValueAtTime(0.30, t)
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.16)
-  osc.start(t); osc.stop(t + 0.17)
-}
+function playPop()     { SFX?.pop.play() }
+function playPing()    { SFX?.ping.play() }
+function playBomb()    { SFX?.bomb.play() }
+function playBeep(freq){ freq === 880 ? SFX?.beep880.play() : SFX?.beep660.play() }
+function playGo()      { SFX?.go.play() }
+function playSuccess() { SFX?.success.play() }
 
-function playBomb() {
-  const ctx = ac(); if (!ctx) return
-  const t = ctx.currentTime
-  const o1 = ctx.createOscillator(), g1 = ctx.createGain()
-  o1.connect(g1); g1.connect(ctx.destination)
-  o1.type = 'sawtooth'
-  o1.frequency.setValueAtTime(160, t)
-  o1.frequency.exponentialRampToValueAtTime(35, t + 0.55)
-  g1.gain.setValueAtTime(0.5, t)
-  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.55)
-  o1.start(t); o1.stop(t + 0.56)
-  const o2 = ctx.createOscillator(), g2 = ctx.createGain()
-  o2.connect(g2); g2.connect(ctx.destination)
-  o2.type = 'square'
-  o2.frequency.setValueAtTime(440, t)
-  o2.frequency.exponentialRampToValueAtTime(60, t + 0.3)
-  g2.gain.setValueAtTime(0.20, t)
-  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.3)
-  o2.start(t); o2.stop(t + 0.31)
-}
-
-function playPing() {
-  const ctx = ac(); if (!ctx) return
-  const t = ctx.currentTime
-  const osc = ctx.createOscillator(), g = ctx.createGain()
-  osc.connect(g); g.connect(ctx.destination)
-  osc.type = 'sine'; osc.frequency.value = 1400
-  g.gain.setValueAtTime(0.07, t)
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.09)
-  osc.start(t); osc.stop(t + 0.10)
-}
-
-function playBeep(freq, dur = 0.11, vol = 0.20) {
-  const ctx = ac(); if (!ctx) return
-  const t = ctx.currentTime
-  const osc = ctx.createOscillator(), g = ctx.createGain()
-  osc.connect(g); g.connect(ctx.destination)
-  osc.type = 'sine'; osc.frequency.value = freq
-  g.gain.setValueAtTime(vol, t)
-  g.gain.exponentialRampToValueAtTime(0.001, t + dur)
-  osc.start(t); osc.stop(t + dur + 0.01)
-}
-
-function playGo() {
-  const ctx = ac(); if (!ctx) return
-  ;[0, 4, 7, 12].forEach((semi, i) => {
-    const freq = 440 * Math.pow(2, semi / 12)
-    const t = ctx.currentTime + i * 0.07
-    const osc = ctx.createOscillator(), g = ctx.createGain()
-    osc.connect(g); g.connect(ctx.destination)
-    osc.type = 'sine'; osc.frequency.value = freq
-    g.gain.setValueAtTime(0.24, t)
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
-    osc.start(t); osc.stop(t + 0.23)
-  })
-}
-
-function playSuccess() {
-  const ctx = ac(); if (!ctx) return
-  ;[0, 4, 7, 12, 16].forEach((semi, i) => {
-    const freq = 523.25 * Math.pow(2, semi / 12)
-    const t = ctx.currentTime + i * 0.09
-    const osc = ctx.createOscillator(), g = ctx.createGain()
-    osc.connect(g); g.connect(ctx.destination)
-    osc.type = 'sine'; osc.frequency.value = freq
-    g.gain.setValueAtTime(0.22, t)
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.28)
-    osc.start(t); osc.stop(t + 0.29)
-  })
-}
-
-// ── Tap to start (required user gesture for camera on iOS) ────────────────────
+// ── Tap to start (required user gesture for camera + audio on iOS) ────────────
 const tapStart = document.getElementById('tap-start')
-tapStart.addEventListener('click', () => {
+let _started = false
+function handleTapStart(e) {
+  if (_started) return; _started = true
+  e.preventDefault()
   tapStart.style.display = 'none'
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-  // iOS requires a real audio node to be played synchronously in the gesture
-  // to unlock the context — otherwise resume() later won't work
-  const unlock = audioCtx.createBuffer(1, 1, 22050)
-  const node = audioCtx.createBufferSource()
-  node.buffer = unlock
-  node.connect(audioCtx.destination)
-  node.start(0)
+  initAudio()
   startAR()
-}, { once: true })
+}
+tapStart.addEventListener('touchstart', handleTapStart)
+tapStart.addEventListener('click', handleTapStart)
 
 // ── AR init ───────────────────────────────────────────────────────────────────
 async function startAR() {
