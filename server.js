@@ -21,6 +21,19 @@ function saveData() {
 }
 let { leaderboard } = loadData()
 
+// Deduplicate existing leaderboard to keep only highest score per player
+const deduped = new Map()
+for (const entry of leaderboard) {
+  const key = entry.playerId || entry.name
+  const existing = deduped.get(key)
+  if (!existing || entry.score > existing.score) {
+    deduped.set(key, entry)
+  }
+}
+leaderboard = Array.from(deduped.values())
+leaderboard.sort((a, b) => b.score - a.score)
+saveData()
+
 // ── In-memory connections ─────────────────────────────────────────────────────
 // desks:   Map<desktopId → ws>
 // players: Map<ws → { playerId, desktopId, name }>
@@ -112,9 +125,8 @@ wss.on('connection', (ws) => {
         if (!player?.name) break
         const color = msg.color === 'purple' ? 'purple' : 'green'
         const payload = JSON.stringify({ type: 'btn_press', name: player.name, color })
-        wss.clients.forEach(c => {
-          if (c._role === 'desktop' && c.readyState === WebSocket.OPEN) c.send(payload)
-        })
+        const deskWs = desks.get(player.desktopId)
+        if (deskWs && deskWs.readyState === WebSocket.OPEN) deskWs.send(payload)
         break
       }
 
@@ -124,9 +136,8 @@ wss.on('connection', (ws) => {
         const score = Math.max(0, Math.floor(Number(msg.score) || 0))
         const timeLeft = msg.timeLeft
         const payload = JSON.stringify({ type: 'live_score', name: player.name, score, timeLeft })
-        wss.clients.forEach(c => {
-          if (c._role === 'desktop' && c.readyState === WebSocket.OPEN) c.send(payload)
-        })
+        const deskWs = desks.get(player.desktopId)
+        if (deskWs && deskWs.readyState === WebSocket.OPEN) deskWs.send(payload)
         break
       }
 
@@ -156,21 +167,38 @@ wss.on('connection', (ws) => {
       case 'submit_score': {
         const player = players.get(ws)
         if (!player?.name) break
-        const entry = {
-          id:       Date.now() + Math.random(),
-          playerId: player.playerId,
-          name:     player.name,
-          score:    Math.max(0, Math.floor(Number(msg.score) || 0)),
-          ts:       Date.now(),
+        const score = Math.max(0, Math.floor(Number(msg.score) || 0))
+        
+        let entryId = null
+        const existingIdx = leaderboard.findIndex(e => e.playerId ? e.playerId === player.playerId : e.name === player.name)
+        
+        if (existingIdx !== -1) {
+          const existing = leaderboard[existingIdx]
+          entryId = existing.id
+          if (score > existing.score) {
+            existing.score = score
+            existing.ts = Date.now()
+            existing.name = player.name
+          }
+        } else {
+          entryId = Date.now() + Math.random()
+          const entry = {
+            id:       entryId,
+            playerId: player.playerId,
+            name:     player.name,
+            score:    score,
+            ts:       Date.now(),
+          }
+          leaderboard.push(entry)
         }
-        leaderboard.push(entry)
+        
         leaderboard.sort((a, b) => b.score - a.score)
         leaderboard = leaderboard.slice(0, 100)
         saveData()
         broadcastLeaderboard()
-        const rank = leaderboard.findIndex(e => e.id === entry.id) + 1
+        const rank = leaderboard.findIndex(e => e.id === entryId) + 1
         send(ws, { type: 'score_saved', rank })
-        console.log(`[score] ${entry.name}: ${entry.score} (rank ${rank})`)
+        console.log(`[score] ${player.name}: ${score} (rank ${rank})`)
         break
       }
     }
