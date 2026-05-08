@@ -122,7 +122,8 @@ wss.on('connection', (ws) => {
         const player = players.get(ws)
         if (!player?.name) break
         const score = Math.max(0, Math.floor(Number(msg.score) || 0))
-        const payload = JSON.stringify({ type: 'live_score', name: player.name, score })
+        const timeLeft = msg.timeLeft
+        const payload = JSON.stringify({ type: 'live_score', name: player.name, score, timeLeft })
         wss.clients.forEach(c => {
           if (c._role === 'desktop' && c.readyState === WebSocket.OPEN) c.send(payload)
         })

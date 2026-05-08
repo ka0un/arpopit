@@ -385,6 +385,41 @@ async function startAR() {
 
   const anchor = mindar.addAnchor(0)
 
+  // ── Particle System ───────────────────────────────────────────────────────
+  const particleGroups = []
+  function spawnParticles(dome, colorHex) {
+    const pCount = 15
+    const pGeo = new THREE.BufferGeometry()
+    const pPos = new Float32Array(pCount * 3)
+    const pVel = []
+    
+    // Get local position inside anchor.group
+    const localPos = dome.position.clone().multiplyScalar(1.6)
+    
+    for (let i = 0; i < pCount; i++) {
+      pPos[i*3] = localPos.x
+      pPos[i*3+1] = localPos.y
+      pPos[i*3+2] = localPos.z
+      
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(Math.random() * 2 - 1)
+      const speed = 0.015 + Math.random() * 0.02
+      
+      pVel.push(new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta) * speed,
+        Math.sin(phi) * Math.sin(theta) * speed,
+        Math.cos(phi) * speed
+      ))
+    }
+    
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3))
+    const pMat = new THREE.PointsMaterial({ color: colorHex, size: 0.02, transparent: true, opacity: 1, depthWrite: false })
+    const pSystem = new THREE.Points(pGeo, pMat)
+    
+    anchor.group.add(pSystem)
+    particleGroups.push({ system: pSystem, velocities: pVel, age: 0, maxAge: 25 })
+  }
+
   // ── Build the bear toy ────────────────────────────────────────────────────
   const { toyGroup, btnDomes } = buildBearToy()
   toyGroup.scale.setScalar(1.6)
@@ -409,6 +444,25 @@ async function startAR() {
   const GAME_DURATION = 30
   let gameState = 'WAITING'
   let score = 0, timeLeft = GAME_DURATION, timerInterval = null, spawnTimeout = null
+
+  // ── Combo System ────────────────────────────────────────────────────────
+  let comboCount = 0
+  let comboTimeout = null
+
+  function resetCombo() {
+    comboCount = 0
+    if (SFX?.pop) SFX.pop.rate(1.0)
+  }
+
+  function addCombo() {
+    comboCount++
+    if (SFX?.pop) {
+      const newRate = Math.min(1.0 + (comboCount - 1) * 0.08, 1.8)
+      SFX.pop.rate(newRate)
+    }
+    clearTimeout(comboTimeout)
+    comboTimeout = setTimeout(resetCombo, 1500)
+  }
 
   // Button states: 'off' | 'green' | 'purple'
   const btnStates  = new Array(btnDomes.length).fill('off')
@@ -443,15 +497,20 @@ async function startAR() {
     pressAnims.set(dome, { t0: performance.now(), duration: 180 })
 
     if (state === 'green') {
-      score += 10; floatLabel('+10', '#44FF72', dome)
+      addCombo()
+      score += 10
+      floatLabel('+10', '#44FF72', dome)
+      spawnParticles(dome, COL_GREEN)
       playPop()
       updateHUD()
-      wsSend({ type: 'live_score', score })
+      wsSend({ type: 'live_score', score, timeLeft })
       wsSend({ type: 'btn_press', color: 'green' })
       setTimeout(() => setBtn(i, 'off'), 0)
     } else if (state === 'purple') {
+      resetCombo()
       dome.material.color.setHex(COL_FLASH)
       floatLabel('💀', '#DD33FF', dome)
+      spawnParticles(dome, COL_FLASH)
       playBomb()
       wsSend({ type: 'btn_press', color: 'purple' })
       setTimeout(() => endGame('bomb'), 420)
@@ -509,12 +568,13 @@ async function startAR() {
 
   function startGame() {
     gameState = 'PLAYING'; score = 0; timeLeft = GAME_DURATION
+    resetCombo()
     countdownEl.style.display = 'none'
     updateHUD()
     spawnLoop()
     timerInterval = setInterval(() => {
       timeLeft--; updateHUD()
-      wsSend({ type: 'live_score', score })
+      wsSend({ type: 'live_score', score, timeLeft })
       if (timeLeft <= 5 && timeLeft > 0) playBeep(880, 0.07, 0.12)
       if (timeLeft <= 0) { clearInterval(timerInterval); endGame('timer') }
     }, 1000)
@@ -562,6 +622,7 @@ async function startAR() {
     document.getElementById('go-name-form').style.display = 'none'
     btnStates.fill('off')
     gameState = 'WAITING'; score = 0; timeLeft = GAME_DURATION
+    resetCombo()
     updateHUD()
     scanPrompt.style.display = 'flex'
     targetHint.classList.add('show')
@@ -610,6 +671,29 @@ async function startAR() {
       dome.scale.setScalar(1 - Math.sin(t * Math.PI) * 0.28)
       if (t >= 1) { dome.scale.setScalar(1); pressAnims.delete(dome) }
     })
+
+    // Particles update
+    for (let i = particleGroups.length - 1; i >= 0; i--) {
+      const p = particleGroups[i]
+      p.age++
+      if (p.age > p.maxAge) {
+        anchor.group.remove(p.system)
+        p.system.geometry.dispose()
+        p.system.material.dispose()
+        particleGroups.splice(i, 1)
+        continue
+      }
+      
+      const pos = p.system.geometry.attributes.position.array
+      for (let j = 0; j < p.velocities.length; j++) {
+        pos[j*3] += p.velocities[j].x
+        pos[j*3+1] += p.velocities[j].y
+        pos[j*3+2] += p.velocities[j].z
+        p.velocities[j].y -= 0.0012 // gravity
+      }
+      p.system.geometry.attributes.position.needsUpdate = true
+      p.system.material.opacity = 1 - Math.pow(p.age / p.maxAge, 2)
+    }
 
     renderer.render(scene, camera)
   })

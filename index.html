@@ -13,6 +13,21 @@
     .spinner { width:40px; height:40px; border:3px solid rgba(240,235,224,.12); border-top-color:#C4846A; border-radius:50%; animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
 
+    @keyframes shake-hard {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      10% { transform: translate(-10px, -10px) rotate(-2deg); }
+      20% { transform: translate(10px, -10px) rotate(2deg); }
+      30% { transform: translate(-10px, 10px) rotate(-2deg); }
+      40% { transform: translate(10px, 10px) rotate(2deg); }
+      50% { transform: translate(-10px, -10px) rotate(-1deg); }
+      60% { transform: translate(10px, -10px) rotate(1deg); }
+      70% { transform: translate(-10px, 10px) rotate(-1deg); }
+      80% { transform: translate(10px, 10px) rotate(1deg); }
+      90% { transform: translate(-5px, -5px) rotate(0deg); }
+      100% { transform: translate(0, 0) rotate(0deg); }
+    }
+    .shake-hard { animation: shake-hard 0.4s cubic-bezier(.36,.07,.19,.97) both; border: 8px solid #DD33FF; box-sizing: border-box; }
+
     /* ── Desktop layout ───────────────────────────── */
     #desktop-screen { display:none; height:100vh; grid-template-columns:1fr 400px; }
 
@@ -146,7 +161,10 @@
   <div class="right-panel">
     <div class="board-header">
       <h2>Leaderboard</h2>
-      <div id="live-badge"><div class="dot"></div><span id="live-name">—</span>&nbsp;·&nbsp;<span id="live-pts">0</span></div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div id="live-timer" style="font-size:24px; font-weight:900; font-variant-numeric: tabular-nums; color:#fff; display:none;">30s</div>
+        <div id="live-badge"><div class="dot"></div><span id="live-name">—</span>&nbsp;·&nbsp;<span id="live-pts">0</span></div>
+      </div>
     </div>
     <div id="board-wrap"><div class="empty-state">No scores yet — be the first!</div></div>
     <div class="board-footer">
@@ -202,11 +220,24 @@ if (isMobile) {
     } catch (err) { console.warn('[board] render error', err) }
   }
 
-  function showLive(name, score) {
+  function showLive(name, score, timeLeft) {
     liveName.textContent = esc(name); livePts.textContent = score + ' pts'
     liveBadge.classList.add('show')
+
+    if (timeLeft !== undefined) {
+      const timerEl = document.getElementById('live-timer');
+      timerEl.style.display = 'block';
+      timerEl.textContent = timeLeft + 's';
+      if (timeLeft <= 5) timerEl.style.color = '#E85D5D';
+      else timerEl.style.color = '#fff';
+
+      if (timeLeft <= 0) {
+        setTimeout(() => timerEl.style.display = 'none', 3000);
+      }
+    }
+
     clearTimeout(liveTimer)
-    liveTimer = setTimeout(() => liveBadge.classList.remove('show'), 4000)
+    liveTimer = setTimeout(() => { liveBadge.classList.remove('show'); document.getElementById('live-timer').style.display='none'; }, 4000)
   }
 
   function showPlayer(name) {
@@ -221,12 +252,18 @@ if (isMobile) {
     // reset animation
     flash.classList.remove('green', 'purple')
     label.classList.remove('show-green', 'show-purple')
+    document.body.classList.remove('shake-hard')
     void flash.offsetWidth // trigger reflow
     
     flash.classList.add(color)
     label.textContent = color === 'green' ? '+10' : '💀'
     label.style.color = color === 'green' ? '#44FF72' : '#DD33FF'
     label.classList.add(color === 'green' ? 'show-green' : 'show-purple')
+    
+    if (color === 'purple') {
+      document.body.classList.add('shake-hard')
+      setTimeout(() => document.body.classList.remove('shake-hard'), 500)
+    }
   }
 
   // ── Restore from cache immediately (no await) ───────────────────
@@ -269,7 +306,7 @@ if (isMobile) {
       }
       if (msg.type === 'player_joined') showPlayer('…')
       if (msg.type === 'player_named')  showPlayer(msg.name)
-      if (msg.type === 'live_score')    showLive(msg.name, msg.score)
+      if (msg.type === 'live_score')    showLive(msg.name, msg.score, msg.timeLeft)
       if (msg.type === 'btn_press')     showBtnFlash(msg.color, msg.name)
     }
   }
