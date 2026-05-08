@@ -26,17 +26,22 @@ function saveData() {
 }
 let { leaderboard, recentAttempts } = loadData()
 
-// Deduplicate existing leaderboard to keep only highest score per player
-const deduped = new Map()
-for (const entry of leaderboard) {
-  const key = entry.playerId || entry.name
-  const existing = deduped.get(key)
-  if (!existing || entry.score > existing.score) {
-    deduped.set(key, entry)
+function deduplicateLeaderboard() {
+  const deduped = new Map()
+  for (const entry of leaderboard) {
+    const key = entry.name
+    const existing = deduped.get(key)
+    if (!existing || entry.score > existing.score) {
+      deduped.set(key, entry)
+    }
   }
+  leaderboard = Array.from(deduped.values())
+  leaderboard.sort((a, b) => b.score - a.score)
+  leaderboard = leaderboard.slice(0, 100)
 }
-leaderboard = Array.from(deduped.values())
-leaderboard.sort((a, b) => b.score - a.score)
+
+// Initial deduplication
+deduplicateLeaderboard()
 saveData()
 
 // ── In-memory connections ─────────────────────────────────────────────────────
@@ -167,7 +172,10 @@ wss.on('connection', (ws) => {
             patched = true
           }
         }
-        if (patched) saveData()
+        if (patched) {
+          deduplicateLeaderboard()
+          saveData()
+        }
         send(ws, { type: 'name_ok', name: newName })
         const deskWs = desks.get(player.desktopId)
         send(deskWs, { type: 'player_named', name: newName })
@@ -190,7 +198,7 @@ wss.on('connection', (ws) => {
         const score = Math.max(0, Math.floor(Number(msg.score) || 0))
 
         let entryId = null
-        const existingIdx = leaderboard.findIndex(e => e.playerId ? e.playerId === player.playerId : e.name === player.name)
+        const existingIdx = leaderboard.findIndex(e => e.name === player.name)
 
         if (existingIdx !== -1) {
           const existing = leaderboard[existingIdx]
@@ -199,6 +207,7 @@ wss.on('connection', (ws) => {
             existing.score = score
             existing.ts = Date.now()
             existing.name = player.name
+            existing.playerId = player.playerId
           }
         } else {
           entryId = Date.now() + Math.random()
@@ -212,8 +221,7 @@ wss.on('connection', (ws) => {
           leaderboard.push(entry)
         }
 
-        leaderboard.sort((a, b) => b.score - a.score)
-        leaderboard = leaderboard.slice(0, 100)
+        deduplicateLeaderboard()
 
         recentAttempts.unshift({ playerId: player.playerId, name: player.name, score, rank: leaderboard.findIndex(e => e.id === entryId) + 1 })
         if (recentAttempts.length > 5) recentAttempts.pop()
