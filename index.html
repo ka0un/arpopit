@@ -424,6 +424,12 @@ if (isMobile) {
         addRecentAttempt(msg.name, msg.score, msg.rank)
         if (msg.rank <= 10) spawnDesktopParticles('party')
       }
+      if (msg.type === 'recent_attempts_history') {
+        if (msg.attempts.length > 0) {
+          document.getElementById('recent-wrap').innerHTML = ''
+          msg.attempts.slice().reverse().forEach(a => addRecentAttempt(a.name, a.score, a.rank))
+        }
+      }
     }
   }
   connect()

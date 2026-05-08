@@ -14,12 +14,17 @@ app.use(express.static(path.join(__dirname)))
 // ── Persistent storage ────────────────────────────────────────────────────────
 const DATA_FILE = path.join(__dirname, 'data.json')
 function loadData() {
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')) } catch { return { leaderboard: [] } }
+  try {
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))
+    return { leaderboard: data.leaderboard || [], recentAttempts: data.recentAttempts || [] }
+  } catch {
+    return { leaderboard: [], recentAttempts: [] }
+  }
 }
 function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ leaderboard }, null, 2))
+  fs.writeFileSync(DATA_FILE, JSON.stringify({ leaderboard, recentAttempts }, null, 2))
 }
-let { leaderboard } = loadData()
+let { leaderboard, recentAttempts } = loadData()
 
 // Deduplicate existing leaderboard to keep only highest score per player
 const deduped = new Map()
@@ -76,6 +81,7 @@ wss.on('connection', (ws) => {
         ws._desktopId = desktopId
         ws._role = 'desktop'
         send(ws, { type: 'leaderboard', entries: leaderboard.slice(0, 10) })
+        send(ws, { type: 'recent_attempts_history', attempts: recentAttempts })
 
         // Re-notify desk of any players already waiting for it
         // (handles race where phone connected before desktop WS was ready)
@@ -194,6 +200,10 @@ wss.on('connection', (ws) => {
         
         leaderboard.sort((a, b) => b.score - a.score)
         leaderboard = leaderboard.slice(0, 100)
+        
+        recentAttempts.unshift({ name: player.name, score, rank: leaderboard.findIndex(e => e.id === entryId) + 1 })
+        if (recentAttempts.length > 5) recentAttempts.pop()
+        
         saveData()
         broadcastLeaderboard()
         const rank = leaderboard.findIndex(e => e.id === entryId) + 1
@@ -205,6 +215,13 @@ wss.on('connection', (ws) => {
 
         send(ws, { type: 'score_saved', rank })
         console.log(`[score] ${player.name}: ${score} (rank ${rank})`)
+        break
+      }
+      
+      case 'leaderboard_connect': {
+        ws._role = 'leaderboard'
+        send(ws, { type: 'leaderboard', entries: leaderboard.slice(0, 10) })
+        send(ws, { type: 'recent_attempts_history', attempts: recentAttempts })
         break
       }
     }

@@ -347,6 +347,12 @@ function connect() {
     if (msg.type === 'recent_attempt') {
       addRecentAttempt(msg.name, msg.score, msg.rank)
     }
+    if (msg.type === 'recent_attempts_history') {
+      if (msg.attempts.length > 0) {
+        document.getElementById('recent-wrap').innerHTML = ''
+        msg.attempts.slice().reverse().forEach(a => addRecentAttempt(a.name, a.score, a.rank))
+      }
+    }
   }
 }
 
