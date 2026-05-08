@@ -148,10 +148,10 @@
   <div id="go-rank"></div>
   <div id="go-name-row">
     Playing as <strong id="go-name-display"></strong>
-    <button id="go-name-edit-btn">✏️ Change</button>
+    <button id="go-name-edit-btn" style="display:none;">✏️ Change</button>
   </div>
   <div id="go-name-form">
-    <p>Update your name on the leaderboard</p>
+    <p id="go-name-form-label">Update your name on the leaderboard</p>
     <input id="go-name-input" type="text" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
     <button id="go-name-save-btn">Save Name</button>
   </div>
@@ -252,7 +252,27 @@ function connectWS() {
   ws.onclose = () => { wsDot.className = 'err'; wsReconnectTimer = setTimeout(connectWS, 2500) }
   ws.onmessage = (e) => {
     let msg; try { msg = JSON.parse(e.data) } catch { return }
-    if (msg.type === 'score_saved') goRank.textContent = msg.rank === 1 ? '🥇 New high score!' : `Rank #${msg.rank}`
+    if (msg.type === 'score_saved') {
+      const rank = msg.rank
+      goRank.textContent = rank === 1 ? '🥇 New high score!' : `Rank #${rank}`
+      
+      const editBtn = document.getElementById('go-name-edit-btn')
+      if (rank <= 10) {
+        editBtn.style.display = 'inline-block'
+        // Only auto-prompt if still using auto-generated name
+        if (playerName.startsWith('Bear#')) {
+          const nameForm  = document.getElementById('go-name-form')
+          const nameInput = document.getElementById('go-name-input')
+          const nameLabel = document.getElementById('go-name-form-label')
+          if (nameLabel) nameLabel.textContent = `🎉 Top ${rank}! Enter a name for the leaderboard`
+          nameInput.value = ''
+          nameForm.style.display = 'flex'
+          setTimeout(() => nameInput.focus(), 100)
+        }
+      } else {
+        editBtn.style.display = 'none'
+      }
+    }
   }
 }
 connectWS()
@@ -427,11 +447,13 @@ async function startAR() {
       playPop()
       updateHUD()
       wsSend({ type: 'live_score', score })
+      wsSend({ type: 'btn_press', color: 'green' })
       setTimeout(() => setBtn(i, 'off'), 0)
     } else if (state === 'purple') {
       dome.material.color.setHex(COL_FLASH)
       floatLabel('💀', '#DD33FF', dome)
       playBomb()
+      wsSend({ type: 'btn_press', color: 'purple' })
       setTimeout(() => endGame('bomb'), 420)
     }
   }
@@ -507,18 +529,8 @@ async function startAR() {
     goScore.style.color = reason === 'bomb' ? '#E85D5D' : '#E8A090'
     gameoverEl.querySelector('h2').textContent = reason === 'bomb' ? 'Bomb Hit! 💀' : 'Time\'s Up!'
     goRank.textContent = '…'
-    // Show current name; if still auto-generated, expand name form immediately
     document.getElementById('go-name-display').textContent = playerName
-    const nameForm = document.getElementById('go-name-form')
-    const nameInput = document.getElementById('go-name-input')
-    if (playerName.startsWith('Bear#')) {
-      nameForm.style.display = 'flex'
-      nameInput.value = ''
-      nameInput.placeholder = 'Enter your name…'
-    } else {
-      nameForm.style.display = 'none'
-      nameInput.value = playerName
-    }
+    document.getElementById('go-name-form').style.display = 'none'
     gameoverEl.style.display = 'flex'
     if (reason === 'timer') playSuccess()
     wsSend({ type: 'submit_score', score })

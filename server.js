@@ -107,6 +107,17 @@ wss.on('connection', (ws) => {
         break
       }
 
+      case 'btn_press': {
+        const player = players.get(ws)
+        if (!player?.name) break
+        const color = msg.color === 'purple' ? 'purple' : 'green'
+        const payload = JSON.stringify({ type: 'btn_press', name: player.name, color })
+        wss.clients.forEach(c => {
+          if (c._role === 'desktop' && c.readyState === WebSocket.OPEN) c.send(payload)
+        })
+        break
+      }
+
       case 'live_score': {
         const player = players.get(ws)
         if (!player?.name) break
@@ -125,9 +136,14 @@ wss.on('connection', (ws) => {
         const newName = String(msg.name || '').trim().slice(0, 20) || oldName
         if (newName === oldName) break
         player.name = newName
-        // Patch the most recent leaderboard entry that belonged to this player
-        const entry = [...leaderboard].reverse().find(e => e.name === oldName)
-        if (entry) { entry.name = newName; saveData() }
+        let patched = false
+        for (const e of leaderboard) {
+          if ((e.playerId && e.playerId === player.playerId) || (!e.playerId && e.name === oldName)) {
+            e.name = newName
+            patched = true
+          }
+        }
+        if (patched) saveData()
         send(ws, { type: 'name_ok', name: newName })
         const deskWs = desks.get(player.desktopId)
         send(deskWs, { type: 'player_named', name: newName })
@@ -140,10 +156,11 @@ wss.on('connection', (ws) => {
         const player = players.get(ws)
         if (!player?.name) break
         const entry = {
-          id:    Date.now() + Math.random(),
-          name:  player.name,
-          score: Math.max(0, Math.floor(Number(msg.score) || 0)),
-          ts:    Date.now(),
+          id:       Date.now() + Math.random(),
+          playerId: player.playerId,
+          name:     player.name,
+          score:    Math.max(0, Math.floor(Number(msg.score) || 0)),
+          ts:       Date.now(),
         }
         leaderboard.push(entry)
         leaderboard.sort((a, b) => b.score - a.score)
